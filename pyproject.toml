@@ -1,0 +1,24 @@
+[project]
+name = "simpa"
+version = "0.1.0"
+description = "Sistema Inteligente de Monitoramento e Predição Acadêmica"
+requires-python = ">=3.11"
+
+# ---------- Linter e formatador (RNF02) ----------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W = estilo PEP8 | F = erros (variável não usada etc.) | I = ordem dos imports
+# N = nomenclatura | B = bugs comuns | S = segurança (bandit) | UP = sintaxe moderna
+select = ["E", "W", "F", "I", "N", "B", "S", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Nos testes o uso de assert é esperado
+"tests/**" = ["S101"]
+
+# ---------- Testes (RNF07) ----------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

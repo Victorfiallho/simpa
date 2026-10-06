@@ -1,0 +1,30 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Ferramentas
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Segredos e configuração local (RNF04 — nunca versionar)
+.env
+
+# Banco local de desenvolvimento
+*.db
+*.sqlite3
+
+# Exportações geradas (RF11)
+exports/
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
