@@ -23,15 +23,28 @@ git clone <url-do-repo> && cd simpa
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# 3. Dependências
-pip install -r requirements.txt
+# 3. Dependências (inclui pytest, ruff e httpx)
+pip install -r requirements-dev.txt
 
-# 4. Configuração
+# 4. Configuração — depois edite o JWT_SECRET no .env
 cp .env.example .env             # Windows: copy .env.example .env
 
-# 5. Verificar
+# 5. Banco de dados
+alembic upgrade head
+
+# 6. Verificar
 ruff check .
 pytest
+```
+
+> `requirements.txt` tem só o necessário para rodar a aplicação.
+> `requirements-dev.txt` acrescenta as ferramentas de teste e lint.
+
+### Gerar uma migração depois de alterar os models
+
+```bash
+alembic revision --autogenerate -m "descricao curta"
+alembic upgrade head
 ```
 
 ## Estrutura
@@ -54,6 +67,8 @@ scripts/         seed de dados sintéticos
 
 ## Documentação
 
+- [Especificação de Requisitos (SRS v1.0.0)](docs/srs-v1.0.0.docx)
+- [Enunciado do Projeto Integrador](docs/enunciado-pi.pdf)
 - [Decisões técnicas](docs/decisoes.md)
 - [DER](docs/der.md)
 
@@ -61,4 +76,6 @@ scripts/         seed de dados sintéticos
 
 | Integrante | Responsabilidades |
 |---|---|
-| | |
+| _Nome_ | _ex.: API e autenticação_ |
+| _Nome_ | _ex.: estatística e risco_ |
+| _Nome_ | _ex.: relatórios e gráficos_ |

@@ -128,11 +128,11 @@ Exemplo: `TURMA ||--o{ ALUNO` significa que todo aluno pertence a exatamente uma
 
 - **Indicadores estatísticos (RF05):** são calculados sob demanda no `services/`. Guardá-los criaria dados duplicados que podem ficar desatualizados.
 - **`frequencia_percentual`:** é derivado de `faltas` e `aulas_previstas` (D02).
-- **`ResultadoRisco`** é a exceção. Ele é persistido porque o RF07 exige registrar o critério violado, e o histórico permite ver a evolução do aluno.
+- **`ResultadoRisco`** é a exceção. Ele é persistido porque o RF07 exige registrar o critério violado, e o histórico permite ver a evolução do aluno. Uma linha nova só é gravada quando a classificação muda (D11).
 
 ## Regras que o banco NÃO garante sozinho (ficam no service)
 
 - Não lançar nota ou frequência em uma disciplina ou turma `encerrada` (D10).
 - Só o professor da disciplina pode lançar notas nela (D03).
-- Recalcular o `ResultadoRisco` a cada alteração de avaliação ou frequência (RF03).
+- Recalcular o risco a cada alteração de avaliação ou frequência e gravar um novo `ResultadoRisco` só quando a classificação mudar (RF03, D11).
 - Validar a sintaxe do CPF (dígitos verificadores) (RF01).
