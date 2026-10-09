@@ -71,8 +71,14 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 - **Decisão:** com status `encerrada`, ficam bloqueados **criar, editar e excluir** avaliações, frequências e inscrições. Apenas o Admin pode reabrir, alterando o status. Encerrar uma turma bloqueia todas as disciplinas vinculadas a ela.
 - **Justificativa:** o fechamento de um período letivo precisa ser imutável. Uma correção posterior exige um ato explícito e auditável.
 
+## D11 — Quando gravar um novo `ResultadoRisco`
+- **Problema:** se o risco for recalculado e gravado a cada nota ou frequência alterada, um professor que lança 30 notas em sequência gera 30 linhas de histórico quase idênticas para a mesma inscrição. O histórico fica poluído e não mostra a evolução de verdade.
+- **Opções:** (a) gravar uma linha a cada recálculo; (b) manter uma linha só por inscrição e sobrescrever; (c) gravar uma linha nova apenas quando a **classificação** mudar.
+- **Decisão:** **(c).** Uma linha nova é gravada quando `status`, `atencao` ou `criterios_violados` diferirem do último `ResultadoRisco` da inscrição, ou quando a inscrição ainda não tiver nenhum.
+- **Consequências:** o histórico registra só as transições (ex.: Sem Risco → Em Risco em 12/10), que é o que importa para auditoria e para o RF07. A média e a frequência *atuais* continuam sendo calculadas sob demanda pelo service (princípio de dados derivados). A `media_final` e a `frequencia_final` gravadas mostram os valores no momento da transição.
+
 ---
 
 ## Princípios gerais adotados
 - **Sem exclusão física** de entidades com histórico: o DELETE apenas altera o status para inativo.
-- **Dados derivados** (médias, percentuais, risco) são recalculados no service sempre que uma avaliação ou frequência muda. O `ResultadoRisco` é persistido para histórico e auditoria.
+- **Dados derivados** (médias, percentuais, risco) são recalculados no service sempre que uma avaliação ou frequência muda. O `ResultadoRisco` é persistido para histórico e auditoria, apenas nas mudanças de classificação (D11).
