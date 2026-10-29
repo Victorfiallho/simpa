@@ -1,0 +1,131 @@
+# SIMPA — ambiente completo. Uso: copie .env.example para .env e rode `docker compose up --build`.
+# Arquitetura e motivos: docs/decisoes.md (D13–D16).
+
+name: simpa
+
+x-servico-python: &servico-python
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 20s
+
+services:
+  # ---------- Infraestrutura ----------
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-dados:/var/lib/postgresql/data
+      # Cria um banco por serviço na primeira subida (volume vazio).
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?defina no .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina no .env}
+    ports:
+      - "15672:15672" # painel web do RabbitMQ
+    volumes:
+      - rabbitmq-dados:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ---------- Serviços da aplicação ----------
+  auth:
+    <<: *servico-python
+    build: ./services/auth
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth_db
+      ROOT_PATH: /api/auth
+      JWT_EXPIRA_MINUTOS: ${JWT_EXPIRA_MINUTOS:-60}
+    volumes:
+      - auth-chaves:/servico/chaves
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  academico:
+    <<: *servico-python
+    build: ./services/academico
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/academico_db
+      ROOT_PATH: /api/academico
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      AUTH_JWKS_URL: http://auth:8000/.well-known/jwks.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  analitico:
+    <<: *servico-python
+    build: ./services/analitico
+    environment: &analitico-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/analitico_db
+      ROOT_PATH: /api/analitico
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      AUTH_JWKS_URL: http://auth:8000/.well-known/jwks.json
+      ACADEMICO_URL: http://academico:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Mesmo código do analítico, mas rodando o consumidor de eventos em vez da API.
+  analitico-worker:
+    build: ./services/analitico
+    command: ["python", "-m", "app.events.consumidor"]
+    restart: unless-stopped
+    environment: *analitico-env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      # Só começa depois que a API aplicou as migrações do banco analítico.
+      analitico:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+
+  # ---------- Porta de entrada ----------
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORTA:-80}:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      auth:
+        condition: service_healthy
+      academico:
+        condition: service_healthy
+      analitico:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+volumes:
+  postgres-dados:
+  rabbitmq-dados:
+  auth-chaves:

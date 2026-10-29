@@ -2,6 +2,14 @@
 
 Baseado no SRS v1.0.0 e nas decisões registradas em [`decisoes.md`](decisoes.md).
 
+Cada serviço tem o próprio banco (D13). As linhas **contínuas** são FKs reais, dentro do mesmo banco. As linhas **pontilhadas** ligam bancos diferentes: o campo guarda o id, mas o banco não garante a integridade, e quem confere é a aplicação.
+
+| Banco | Serviço | Tabelas |
+|---|---|---|
+| `auth_db` | auth | `USUARIO`, `LOG_REQUISICAO` |
+| `academico_db` | acadêmico | `TURMA`, `DISCIPLINA`, `ALUNO`, `INSCRICAO`, `AVALIACAO`, `FREQUENCIA` |
+| `analitico_db` | analítico | `RESULTADO_RISCO` |
+
 ```mermaid
 erDiagram
     USUARIO {
@@ -12,6 +20,17 @@ erDiagram
         string role "admin | coordenador | professor"
         bool ativo
         datetime criado_em
+    }
+    LOG_REQUISICAO {
+        int id PK
+        string correlation_id UK
+        int usuario_id "id do auth, nulo se anonimo"
+        string rota
+        string metodo_http
+        int status_http
+        string ip_origem
+        int tempo_resposta_ms
+        datetime timestamp
     }
     TURMA {
         int id PK
@@ -30,7 +49,7 @@ erDiagram
         int carga_horaria
         string periodo_letivo
         int turma_id FK
-        int professor_id FK "Usuario com role professor"
+        int professor_id "id de Usuario no auth"
         string status "ativa | inativa | encerrada"
     }
     ALUNO {
@@ -57,8 +76,8 @@ erDiagram
         int inscricao_id FK
         string tipo_avaliacao "prova | trabalho | atividade..."
         string periodo_avaliacao "ex.: N1, N2"
-        decimal nota "0.00 a 10.00"
-        decimal peso "maior que 0"
+        decimal nota "Numeric(4,2), 0.00 a 10.00"
+        decimal peso "Numeric(4,2), maior que 0"
         datetime atualizado_em
     }
     FREQUENCIA {
@@ -70,36 +89,25 @@ erDiagram
     }
     RESULTADO_RISCO {
         int id PK
-        int inscricao_id FK
-        decimal media_final
-        decimal frequencia_final
+        int inscricao_id "id de Inscricao no academico"
+        decimal media_final "Numeric(4,2)"
+        decimal frequencia_final "Numeric(5,2), ate 100.00"
         string status "em_risco | sem_risco | indeterminado"
         bool atencao
         string criterios_violados "media_baixa, frequencia_baixa"
         string justificativa
         datetime calculado_em
     }
-    LOG_REQUISICAO {
-        int id PK
-        string correlation_id UK
-        int usuario_id FK "nulo se anonimo"
-        string rota
-        string metodo_http
-        int status_http
-        string ip_origem
-        int tempo_resposta_ms
-        datetime timestamp
-    }
 
     TURMA      ||--o{ ALUNO           : "agrupa"
     TURMA      ||--o{ DISCIPLINA      : "oferta"
-    USUARIO    |o--o{ DISCIPLINA      : "leciona"
     ALUNO      ||--o{ INSCRICAO       : "se inscreve"
     DISCIPLINA ||--o{ INSCRICAO       : "recebe"
     INSCRICAO  ||--o{ AVALIACAO       : "possui"
     INSCRICAO  ||--o{ FREQUENCIA      : "possui"
-    INSCRICAO  ||--o{ RESULTADO_RISCO : "gera historico"
-    USUARIO    |o--o{ LOG_REQUISICAO  : "origina"
+    USUARIO    |o..o{ DISCIPLINA      : "leciona (entre servicos)"
+    USUARIO    |o..o{ LOG_REQUISICAO  : "origina"
+    INSCRICAO  ||..o{ RESULTADO_RISCO : "gera historico (entre servicos)"
 ```
 
 ## Como ler as cardinalidades
@@ -109,30 +117,34 @@ erDiagram
 | `\|\|` | exatamente um (obrigatório) |
 | `\|o` | zero ou um (opcional) |
 | `o{` | zero ou muitos |
+| `--` | FK real, dentro do mesmo banco |
+| `..` | referência por id, entre bancos de serviços diferentes |
 
 Exemplo: `TURMA ||--o{ ALUNO` significa que todo aluno pertence a exatamente uma turma e que uma turma tem zero ou mais alunos.
 
 ## Restrições que o banco deve garantir (RNF08)
 
-| Tabela | Restrição | Origem |
-|---|---|---|
-| aluno | `UNIQUE(matricula)`, `UNIQUE(cpf)` (permite nulo) | RF01 |
-| turma, disciplina | `UNIQUE(codigo)` (permite nulo) | RF02 |
-| usuario | `UNIQUE(email)`, `UNIQUE(nome_usuario)` | RF09 |
-| inscricao | `UNIQUE(aluno_id, disciplina_id)` | D01 |
-| avaliacao | `CHECK(nota BETWEEN 0 AND 10)`, `CHECK(peso > 0)` | RF03 |
-| frequencia | `CHECK(aulas_previstas > 0)`, `CHECK(faltas BETWEEN 0 AND aulas_previstas)`, `UNIQUE(inscricao_id, periodo_avaliacao)` | RF03, D02 |
-| todas as FKs | `ON DELETE RESTRICT` (sem exclusão física com histórico) | Restrição 3 |
+| Banco | Tabela | Restrição | Origem |
+|---|---|---|---|
+| acadêmico | aluno | `UNIQUE(matricula)`, `UNIQUE(cpf)` (permite nulo) | RF01 |
+| acadêmico | turma, disciplina | `UNIQUE(codigo)` (permite nulo) | RF02 |
+| auth | usuario | `UNIQUE(email)`, `UNIQUE(nome_usuario)` | RF09 |
+| acadêmico | inscricao | `UNIQUE(aluno_id, disciplina_id)` | D01 |
+| acadêmico | avaliacao | `CHECK(nota BETWEEN 0 AND 10)`, `CHECK(peso > 0)` | RF03 |
+| acadêmico | frequencia | `CHECK(aulas_previstas > 0)`, `CHECK(faltas BETWEEN 0 AND aulas_previstas)`, `UNIQUE(inscricao_id, periodo_avaliacao)` | RF03, D02 |
+| analítico | resultado_risco | índice em `inscricao_id` (consulta do histórico) | D11 |
+| todos | FKs dentro do mesmo banco | `ON DELETE RESTRICT` (sem exclusão física com histórico) | Restrição 3 |
 
 ## O que fica de fora do banco (e por quê)
 
-- **Indicadores estatísticos (RF05):** são calculados sob demanda no `services/`. Guardá-los criaria dados duplicados que podem ficar desatualizados.
+- **Indicadores estatísticos (RF05):** são calculados sob demanda no serviço analítico. Guardá-los criaria dados duplicados que podem ficar desatualizados.
 - **`frequencia_percentual`:** é derivado de `faltas` e `aulas_previstas` (D02).
 - **`ResultadoRisco`** é a exceção. Ele é persistido porque o RF07 exige registrar o critério violado, e o histórico permite ver a evolução do aluno. Uma linha nova só é gravada quando a classificação muda (D11).
 
 ## Regras que o banco NÃO garante sozinho (ficam no service)
 
-- Não lançar nota ou frequência em uma disciplina ou turma `encerrada` (D10).
-- Só o professor da disciplina pode lançar notas nela (D03).
-- Recalcular o risco a cada alteração de avaliação ou frequência e gravar um novo `ResultadoRisco` só quando a classificação mudar (RF03, D11).
+- Não lançar nota ou frequência em uma disciplina ou turma `encerrada` (D10). Conferir o status da disciplina **e** o da turma dela, em vez de copiar o status da turma para cada disciplina.
+- Só o professor da disciplina pode lançar notas nela (D03): o `sub` do token precisa ser igual a `Disciplina.professor_id`.
+- Ao cadastrar uma disciplina, conferir no auth se o `professor_id` existe e tem role `professor` (D13).
+- Publicar um evento a cada alteração de avaliação, frequência ou inscrição; o analítico recalcula o risco e grava um novo `ResultadoRisco` só quando a classificação mudar (RF03, D11, D14).
 - Validar a sintaxe do CPF (dígitos verificadores) (RF01).

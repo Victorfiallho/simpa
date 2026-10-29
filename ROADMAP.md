@@ -21,7 +21,7 @@ flowchart LR
 
 | Fase | Marco | Semanas (enunciado) | Foco | Status |
 |---|---|---|---|---|
-| 0 | — | 1–3 | Estrutura, SRS, DER, decisões | ✅ Concluída |
+| 0 | — | 1–3 | Estrutura em serviços, Docker, SRS, DER, decisões | ✅ Concluída |
 | 1 | Marco 1 | 4–7 | Models, migrações, CRUD, contrato da API | ⬜ A fazer |
 | 2 | Marco 2 | 8–13 | Indicadores, risco, gráficos, relatórios | ⬜ A fazer |
 | 3 | Marco 3 | 14–19 | Autenticação, RBAC, logs, testes, documentação final | ⬜ A fazer |
@@ -32,13 +32,17 @@ flowchart LR
 
 O que já existe no repositório:
 
-- [x] Estrutura de pastas em camadas (`core`, `models`, `schemas`, `repositories`, `services`, `api`) — RNF01, RNF06
-- [x] Configuração via `.env` com `pydantic-settings` — RNF04
-- [x] Engine SQLAlchemy com `PRAGMA foreign_keys=ON` para SQLite — RNF08
-- [x] Alembic configurado com `render_as_batch` e URL lida do `.env`
-- [x] Ruff com regras de segurança (`S`) e pytest configurados — RNF02, RNF07
-- [x] SRS v1.0.0, DER e registro de decisões D01–D11 — RNF05
-- [x] Teste de sanidade
+- [x] Arquitetura em serviços: `auth`, `academico` e `analitico`, cada um com o próprio banco — D13
+- [x] Cada serviço organizado em camadas (`core`, `models`, `schemas`, `repositories`, `services`, `api`) — RNF01, RNF06
+- [x] Docker Compose com gateway nginx, PostgreSQL, RabbitMQ, os três serviços, o worker do analítico e o frontend provisório — D13, D16
+- [x] `GET /health` e Swagger de cada serviço atrás do gateway (`/api/<serviço>/docs`)
+- [x] Configuração por variáveis de ambiente com `pydantic-settings` — RNF04
+- [x] Alembic por serviço, com a URL lida do ambiente e migrações aplicadas na subida
+- [x] Tokens RS256 emitidos só pelo auth e validados pelos outros serviços via JWKS (`usuario_atual`) — D15
+- [x] Eventos: publicador no acadêmico, worker consumidor no analítico e fila de falhas — D14
+- [x] Logs JSON com `X-Request-ID` gerado no gateway e propagado nos eventos — RF12
+- [x] Ruff com regras de segurança (`S`) e pytest em cada serviço — RNF02, RNF07
+- [x] SRS v1.0.0, DER por serviço e registro de decisões D01–D16 — RNF05
 
 ---
 
@@ -47,11 +51,11 @@ O que já existe no repositório:
 Pequenas correções encontradas na leitura do repositório. Vale resolver primeiro porque são rápidas e evitam confusão na banca.
 
 - [ ] **Unificar o nome do projeto.** O README usa *Sistema Inteligente de Monitoramento e **Predição** Acadêmica* e o SRS usa *Sistema **Integrado** de Monitoramento e **Performance** Acadêmica*. Escolher um e corrigir no outro (o nome do enunciado é o do README).
-- [ ] **Separar as dependências.** O `requirements.txt` hoje inclui `pytest`, `ruff`, `pluggy`, `iniconfig` e `Pygments`, que são de desenvolvimento. Deixar só o necessário para rodar e manter as ferramentas no `requirements-dev.txt`, como o próprio README promete.
-- [ ] **Adicionar as dependências que a stack anuncia e que ainda faltam:** `pandas`, `numpy`, `matplotlib` (análise), `argon2-cffi` ou `bcrypt` (hash de senha), `PyJWT` (token), `openpyxl` e `reportlab` (exportação). Podem entrar na fase em que forem usadas.
-- [ ] **Criar `app/main.py`** com a instância do FastAPI e uma rota `GET /health`, para que `uvicorn app.main:app --reload` funcione e o README ganhe esse passo.
-- [ ] **Preencher a tabela "Equipe"** do README com os 8 integrantes e suas responsabilidades.
-- [ ] **Configurar CI no GitHub Actions** (`.github/workflows/ci.yml`) rodando `ruff check .` e `pytest` em todo push e PR. Isso prova o RNF02 e o RNF07 automaticamente.
+- [x] **Separar as dependências.** Cada serviço tem o próprio `requirements.txt` só com o necessário para rodar; as ferramentas ficam no `requirements-dev.txt` da raiz.
+- [ ] **Adicionar as dependências que ainda faltam, no serviço e na fase em que forem usadas:** `bcrypt` ou `argon2-cffi` (auth, hash de senha); `pandas`, `numpy`, `matplotlib`, `openpyxl` e `reportlab` (analítico); `httpx` (analítico, para chamar o `/internal` do acadêmico).
+- [x] **Criar o `main.py`** de cada serviço com a instância do FastAPI e a rota `GET /health`.
+- [ ] **Preencher a tabela "Equipe"** do README com os 8 integrantes e suas responsabilidades. Sugestão: dividir o grupo por serviço (auth, acadêmico, analítico, frontend).
+- [ ] **Configurar CI no GitHub Actions** (`.github/workflows/ci.yml`) rodando `ruff check .`, o `pytest` de cada serviço e `docker compose build` em todo push e PR. Isso prova o RNF02 e o RNF07 automaticamente.
 - [ ] **Proteger a branch `main`**: merge só por PR com CI verde e ao menos 1 revisão.
 
 ---
@@ -60,17 +64,21 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 
 **Objetivo do Marco 1 (enunciado):** arquitetura definida, modelagem documentada, classes implementadas e API básica funcional de cadastro e consulta.
 
-### 1.1 Modelos e banco — RNF08, D01, D02
-- [ ] Criar os models SQLAlchemy das 9 entidades do DER: `Usuario`, `Turma`, `Disciplina`, `Aluno`, `Inscricao`, `Avaliacao`, `Frequencia`, `ResultadoRisco`, `LogRequisicao`
+### 1.1 Modelos e banco — RNF08, D01, D02, D13
+- [ ] Criar os models SQLAlchemy de cada serviço, conforme o DER:
+  - `services/auth`: `Usuario`, `LogRequisicao`
+  - `services/academico`: `Turma`, `Disciplina`, `Aluno`, `Inscricao`, `Avaliacao`, `Frequencia`
+  - `services/analitico`: `ResultadoRisco`
 - [ ] Aplicar as restrições da tabela "Restrições que o banco deve garantir" do DER (`UNIQUE`, `CHECK`, `ON DELETE RESTRICT`)
-- [ ] Usar `Numeric(4, 2)` para `nota`, `peso`, `media_final` e `frequencia_final` (D06: nada de `float`)
-- [ ] Importar todos os models em `app/models/__init__.py` (o Alembic depende disso)
-- [ ] Gerar e revisar a primeira migração: `alembic revision --autogenerate -m "cria tabelas iniciais"`
+- [ ] IDs de outro serviço (`professor_id`, `inscricao_id` no analítico, `usuario_id` no log) **sem FK**, como no DER (D13)
+- [ ] Usar `Numeric(4, 2)` para `nota`, `peso` e `media_final`, e `Numeric(5, 2)` para `frequencia_final` (D06, D16: nada de `float`)
+- [ ] Importar todos os models no `app/models/__init__.py` de cada serviço (o Alembic depende disso)
+- [ ] Gerar e revisar a primeira migração de cada serviço: `docker compose exec <serviço> alembic revision --autogenerate -m "cria tabelas iniciais"`
 - [ ] Teste de integração: unicidade de matrícula e de `(aluno_id, disciplina_id)` e bloqueio de exclusão com histórico
 
 ### 1.2 Contrato da API e tratamento de erros — RF08, RF10, RNF02, RNF14
 - [ ] Schema genérico de resposta com `status`, `mensagem`, `dados`, `erro`, `pagina`, `limite`, `total_registros`
-- [ ] Exceções de domínio em `app/core/exceptions.py` (ex.: `RecursoNaoEncontrado`, `RegraDeNegocioViolada`, `DisciplinaEncerrada`)
+- [ ] Exceções de domínio em `app/core/exceptions.py` de cada serviço (ex.: `RecursoNaoEncontrado`, `RegraDeNegocioViolada`, `DisciplinaEncerrada`), com o mesmo formato de resposta nos três
 - [ ] *Exception handlers* centralizados: validação → 400/422 com **campo, regra e código interno**; não encontrado → 404; erro inesperado → 500 **sem stack trace**
 - [ ] Catálogo de códigos internos de erro em `docs/codigos-erro.md`
 
@@ -84,29 +92,32 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 - [ ] `BaseRepository` genérico (padrão *Repository*) com `obter`, `listar`, `criar`, `atualizar`, `inativar`
 - [ ] Paginação, ordenação e filtros em todas as listagens (RF08)
 - [ ] Nenhum outro módulo acessa a `Session` diretamente
+- [ ] Repositórios só fazem `add`/`flush`; o `commit()` fica no service, uma vez por caso de uso
 
-### 1.5 Services e rotas CRUD — RF01, RF02, RF03, D10
+### 1.5 Services e rotas CRUD (serviço acadêmico) — RF01, RF02, RF03, D10, D14
 - [ ] `turmas`, `disciplinas`, `alunos`, `inscricoes`, `avaliacoes`, `frequencias`
 - [ ] `DELETE` faz exclusão lógica (status inativo), conforme os princípios gerais
 - [ ] Bloquear criação, edição e exclusão de lançamentos em turma/disciplina `encerrada` (D10)
-- [ ] Encerrar uma turma bloqueia as disciplinas vinculadas
+- [ ] Encerrar uma turma bloqueia as disciplinas vinculadas (conferindo o status da turma, sem copiá-lo para as disciplinas)
+- [ ] Depois do commit, publicar `avaliacao.alterada`, `frequencia.alterada` ou `inscricao.alterada` com `app/events/publicador.py`
+- [ ] Rotas `/internal/inscricoes/{id}` (notas e frequências de uma inscrição) para o analítico consumir
 
-### 1.6 Consulta integrada do aluno — RF04
+### 1.6 Consulta integrada do aluno (serviço acadêmico) — RF04
 - [ ] `GET /alunos/{id}` e `GET /alunos/matricula/{matricula}` com cadastro, notas e frequências
 - [ ] Aluno inexistente → 404
-- [ ] Indicadores e risco entram na resposta na Fase 2
+- [ ] Indicadores e risco entram na resposta na Fase 2 (vêm do analítico)
 
 ### 1.7 Dados sintéticos — RNF04, RNF08
-- [ ] `scripts/seed.py` gerando turmas, disciplinas, alunos, inscrições, notas e frequências **totalmente sintéticos**
+- [ ] `scripts/seed.py` gerando turmas, disciplinas, alunos, inscrições, notas e frequências **totalmente sintéticos**, pelas APIs (via gateway), e não direto nos bancos
 - [ ] Incluir casos de propósito: aluno com média baixa, aluno com frequência baixa, aluno na fronteira (6,00 / 75,00%) e aluno sem dados (D09)
 
 ### 1.8 Documentação do Marco 1 — RNF05
 - [ ] **Diagrama UML de casos de uso** em `docs/` (exigido pelo RNF05 e ainda ausente)
 - [ ] **Diagrama UML de classes** em `docs/` (exigido pelo RNF05 e ainda ausente)
-- [ ] Atualizar o README com o passo de seed e de subir a API (`/docs` do Swagger)
+- [ ] Atualizar o README com o passo de seed
 - [ ] Roteiro de demonstração do Marco 1 (cadastrar turma → disciplina → aluno → inscrição → nota → consultar aluno)
 
-**✔ Pronto quando:** a API sobe, o Swagger mostra os CRUDs, o seed popula o banco, a consulta do aluno funciona e o CI está verde.
+**✔ Pronto quando:** `docker compose up` sobe tudo, o Swagger do acadêmico mostra os CRUDs, o seed popula o banco, a consulta do aluno funciona e o CI está verde.
 
 ---
 
@@ -114,15 +125,17 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 
 **Objetivo do Marco 2 (enunciado):** indicadores estatísticos, visualizações, integração dos cálculos à API e interpretação dos resultados.
 
+Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas rotas `/internal`.
+
 ### 2.1 Serviço de estatística — RF05, D05, D06, D07
-- [ ] `services/estatistica.py` com média simples, média ponderada, mediana, variância, desvio padrão, maior e menor nota, frequência média
+- [ ] `app/services/estatistica.py` em funções puras (sem banco nem rede) com média simples, média ponderada, mediana, variância, desvio padrão, maior e menor nota, frequência média
 - [ ] Arredondamento com `Decimal` e `ROUND_HALF_UP` em 2 casas **antes** de qualquer comparação (D06)
 - [ ] Variância populacional × amostral conforme D07, retornando `tipo_variancia`; `null` + "amostra insuficiente" quando n < 2
 - [ ] Agregação por aluno, turma, disciplina e período letivo
 - [ ] Testes unitários com valores calculados à mão
 
 ### 2.2 Serviço de risco — RF07, RNF09, D04, D08, D09, D11
-- [ ] `services/risco.py` calculando o risco **por inscrição**; o aluno fica Em Risco se qualquer inscrição ativa estiver Em Risco (D04)
+- [ ] Completar `app/services/risco.py` (já chamado pelo worker a cada evento) calculando o risco **por inscrição**; o aluno fica Em Risco se qualquer inscrição ativa estiver Em Risco (D04)
 - [ ] Justificativa legível, citando disciplina, média e frequência (ex.: `"POO: média 4,50 (< 6,00) — media_baixa"`)
 - [ ] Sinal de **Atenção** quando Sem Risco com média 6,00–6,99 ou frequência 75,00–79,99% (D08)
 - [ ] Status **Indeterminado** para inscrição sem dados (D09)
@@ -130,13 +143,13 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 - [ ] Testes obrigatórios: RF07 CA01, CA02, CA03 e as fronteiras 5,994 → Em Risco e 5,995 → Sem Risco
 
 ### 2.3 Integração com a API — RF03, RF04, RF05
-- [ ] Recalcular o risco sempre que uma avaliação ou frequência for criada, alterada ou excluída
-- [ ] Rotas de indicadores: `/indicadores/alunos/{id}`, `/indicadores/turmas/{id}`, `/indicadores/disciplinas/{id}`, `/indicadores/periodos/{periodo}`
+- [ ] Recalcular o risco sempre que uma avaliação ou frequência for criada, alterada ou excluída (o caminho do evento até o worker já funciona; falta o cálculo)
+- [ ] Rotas de indicadores no analítico: `/indicadores/alunos/{id}`, `/indicadores/turmas/{id}`, `/indicadores/disciplinas/{id}`, `/indicadores/periodos/{periodo}`
 - [ ] Rota de histórico de risco por inscrição
 - [ ] Consulta integrada do aluno (RF04) passa a incluir indicadores e diagnóstico de risco
 
 ### 2.4 Visualizações — RF06, RNF09, RNF12
-- [ ] **Registrar a decisão D12: qual será a interface** (ex.: Streamlit, templates Jinja2 no próprio FastAPI ou front separado). O RF04, RF06, RNF11 e RNF12 citam "interface", e isso ainda não foi decidido.
+- [ ] **Fechar a decisão D12: a stack do frontend**, a partir do protótipo do Figma. O container `frontend` e a rota `/` do gateway já existem (ver `frontend/README.md`).
 - [ ] Gráficos: histograma de notas, dispersão (frequência × média), barras por disciplina, linha de evolução, ranking e pizza de status
 - [ ] Todo gráfico com título, eixos, legenda e texto explicativo
 - [ ] Cores semânticas: vermelho = risco, amarelo = atenção, verde = sem risco, azul = informação
@@ -164,11 +177,12 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 
 **Objetivo do Marco 3 (enunciado):** API com autenticação e controle de acesso, segurança básica, logs, testes, documentação e relatório final.
 
-> 💡 O enunciado deixa autenticação para a semana 14, mas as rotas da Fase 1 já podem receber uma dependência `usuario_atual` vazia. Assim, ligar o RBAC depois não exige reescrever as rotas.
+> 💡 O enunciado deixa autenticação para a semana 14, mas a dependência `usuario_atual` já existe no acadêmico e no analítico. Usar nas rotas desde a Fase 1 evita reescrevê-las depois.
 
-### 3.1 Autenticação e RBAC — RF09, D03
+### 3.1 Autenticação e RBAC — RF09, D03, D15
+- [x] Emissão de JWT RS256 com `sub`, `role` e expiração (`criar_token` no auth) e validação via JWKS nos outros serviços
 - [ ] Hash de senha com Argon2 ou bcrypt (Restrição 1)
-- [ ] `POST /auth/login` emitindo JWT com expiração e `role`
+- [ ] `POST /login` no auth (pelo gateway: `/api/auth/login`) usando `criar_token`
 - [ ] Login inválido → 401 com mensagem genérica, sem dizer se foi o e-mail ou a senha (RF09 CA01)
 - [ ] Rota protegida sem token → 401
 - [ ] Dependências de autorização seguindo a tabela da D03
@@ -177,16 +191,16 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 - [ ] Seed cria um usuário de cada perfil para a demonstração
 
 ### 3.2 Logs e auditoria — RF12, RNF16
-- [ ] Middleware que gera um **Correlation ID** por requisição e devolve no cabeçalho de resposta
-- [ ] Logs em JSON estruturado
-- [ ] Gravação em `LogRequisicao` com `usuario_id`, rota, método, status, IP e tempo de resposta
+- [x] **Correlation ID** gerado no gateway, devolvido no cabeçalho de resposta e propagado nos eventos
+- [x] Logs em JSON estruturado em todos os serviços
+- [ ] Gravação em `LogRequisicao` (banco do auth) com `usuario_id`, rota, método, status, IP e tempo de resposta. Definir como os outros serviços enviam o registro (ex.: evento `log.requisicao` no RabbitMQ)
 - [ ] Nunca registrar senha, token ou CPF completo; teste automatizado que garante isso
 
 ### 3.3 Segurança de entrada — RNF15, RNF04
 - [ ] Testes de SQL Injection (o ORM protege, mas o teste comprova)
 - [ ] Sanitização contra XSS em campos de texto
 - [ ] Proteção contra *Parameter Pollution* (parâmetros repetidos na query)
-- [ ] CORS restrito às origens da interface
+- [ ] CORS: com o front e as APIs atrás do mesmo gateway, não é preciso liberar outras origens; manter assim
 - [ ] Revisar se algum painel expõe CPF ou e-mail sem necessidade
 
 ### 3.4 Qualidade e desempenho — RNF03, RNF07, RNF10
@@ -203,7 +217,7 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 - [ ] Relatório técnico final: arquitetura, justificativa das análises, exemplos de indicadores e reflexão sobre o processo
 - [ ] README final com passo a passo completo e prints
 - [ ] Roteiro do pitch e ensaio cronometrado da demonstração
-- [ ] Lista de melhorias futuras (ex.: PostgreSQL em produção, Docker, deploy)
+- [ ] Lista de melhorias futuras (ex.: deploy em nuvem, *outbox* para garantir a publicação dos eventos, HTTPS no gateway)
 
 **✔ Pronto quando:** todos os critérios de aceitação do SRS passam, o CI está verde, a matriz de rastreabilidade está completa e a demonstração roda do zero seguindo só o README.
 
@@ -218,6 +232,8 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 | RBAC adicionado só no fim | Reescrita de várias rotas | Dependência `usuario_atual` desde a Fase 1 |
 | Trabalho concentrado em poucas pessoas | Atrasos e domínio desigual na arguição | Issues com responsável e revisão cruzada em PR |
 | Dados reais no ambiente de desenvolvimento | Violação da LGPD (RNF04) | Usar só o seed sintético |
+| Contratos entre serviços mudarem sem aviso | Um serviço quebra o outro | Documentar as rotas `/internal` e os eventos; testes de contrato; mudanças em PR revisado pelos dois lados |
+| Docker pesado em máquinas mais fracas | Integrante sem conseguir rodar o projeto | Testar cedo em todas as máquinas; `docker compose up <serviço>` sobe só o necessário |
 
 ---
 

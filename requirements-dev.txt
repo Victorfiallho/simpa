@@ -1,5 +1,8 @@
-# Ferramentas de desenvolvimento e testes (RNF02, RNF07)
--r requirements.txt
+# Ambiente local para rodar testes e lint dos três serviços (RNF02, RNF07).
+# A aplicação em si roda no Docker; cada serviço tem o próprio requirements.txt.
+-r services/auth/requirements.txt
+-r services/academico/requirements.txt
+-r services/analitico/requirements.txt
 
 pytest==9.1.1
 httpx==0.28.1               # exigido pelo TestClient do FastAPI
