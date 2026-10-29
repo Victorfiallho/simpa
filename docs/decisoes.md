@@ -133,6 +133,17 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 - **Decisão:** PostgreSQL 17 em container, também no desenvolvimento. O SQLite fica só para testes automatizados que precisarem de banco.
 - **Consequências:** `Numeric(4, 2)` para `nota`, `peso` e `media_final`; **`Numeric(5, 2)` para `frequencia_final`**, porque 100,00% tem cinco dígitos.
 
+## D17 — Autenticação desde a Fase 1
+- **Problema:** o enunciado deixa autenticação para o Marco 3, mas acrescentar o token só no fim obrigaria a reescrever todas as rotas e os testes.
+- **Decisão:** todas as rotas do acadêmico exigem o token desde já. O auth tem `POST /login` e, em desenvolvimento, cria um usuário de cada perfil (`USUARIOS_DEMO=true`, senha `DEMO_SENHA` do `.env`). Das regras de perfil da D03, só "reabrir o que está encerrado" já é aplicada (D10); as demais entram na Fase 3.
+- **Consequência:** a Fase 3 só acrescenta as regras de permissão por perfil, sem mexer no contrato das rotas.
+
+## D18 — Contrato de dados da API
+- **Decimais como texto:** notas, pesos e percentuais saem como texto (`"7.50"`, `"78.13"`), não como número de ponto flutuante. Assim o valor que chega ao cliente é exatamente o do banco (D06). A entrada aceita número ou texto, com no máximo 2 casas.
+- **CPF mascarado:** a API devolve só os dígitos do meio (`***.982.247-**`). O CPF completo nunca sai do serviço acadêmico (RNF04).
+- **Exclusão:** `DELETE` de turma, disciplina, aluno e inscrição é lógico (muda o status). Já uma nota ou frequência lançada por engano é apagada de fato, porque não tem histórico próprio, mas só enquanto a disciplina está aberta (D10). O histórico de risco fica no `ResultadoRisco` (D11).
+- **Erros:** todo erro traz um código interno estável, catalogado em [`codigos-erro.md`](codigos-erro.md).
+
 ---
 
 ## Princípios gerais adotados

@@ -61,8 +61,25 @@ git clone https://github.com/Victorfiallho/simpa.git && cd simpa
 cp .env.example .env             # Windows: copy .env.example .env
 
 # 3. Subir tudo (a primeira vez demora alguns minutos)
-docker compose up --build
+docker compose up --build -d
+
+# 4. Popular com dados sintéticos (36 alunos, 2 turmas, notas e frequências)
+docker compose exec academico python -m app.comandos.seed
 ```
+
+O seed pode ser rodado mais de uma vez: se os dados já existirem, ele não faz nada.
+
+### Usuários de demonstração
+
+Em desenvolvimento, o auth cria um usuário de cada perfil (D03), todos com a senha `DEMO_SENHA` do `.env`:
+
+| E-mail | Perfil |
+|---|---|
+| `admin@simpa.dev` | Administrador |
+| `coordenacao@simpa.dev` | Coordenador |
+| `ana.prof@simpa.dev`, `bruno.prof@simpa.dev`, `carla.prof@simpa.dev` | Professor |
+
+Para usar a API pelo Swagger: faça `POST /login` em http://localhost/api/auth/docs, copie o `access_token`, abra http://localhost/api/academico/docs, clique em **Authorize** e cole o token.
 
 Com tudo de pé:
 
@@ -125,19 +142,20 @@ services/
   analitico/                 ┘
     app/
       main.py                FastAPI + /health
-      core/                  configuração, banco, segurança (JWT), logs
+      core/                  configuração, banco, segurança (JWT), logs, respostas e erros
       models/                entidades (tabelas do banco do serviço)
       schemas/               DTOs de entrada/saída e validação (Pydantic)
       repositories/          acesso a dados; único lugar que fala com o banco
       services/              regras de negócio
       api/                   rotas HTTP (públicas e /internal)
       events/                publicação (acadêmico) ou consumo (analítico) de eventos
+      clientes/              chamadas HTTP a outros serviços (acadêmico → auth)
+      comandos/              comandos de terminal, como o seed (acadêmico)
     migrations/              migrações do Alembic do serviço
     tests/
     Dockerfile
     requirements.txt
-docs/                        SRS, DER, decisões técnicas, diagramas UML
-scripts/                     seed de dados sintéticos
+docs/                        SRS, DER, decisões, UML, códigos de erro, roteiro de demonstração
 ```
 
 ## Documentação
@@ -146,6 +164,9 @@ scripts/                     seed de dados sintéticos
 - [Enunciado do Projeto Integrador](docs/enunciado-pi.pdf)
 - [Decisões técnicas](docs/decisoes.md)
 - [DER](docs/der.md)
+- [Diagramas UML (casos de uso, classes e camadas)](docs/uml.md)
+- [Códigos de erro da API](docs/codigos-erro.md)
+- [Roteiro de demonstração do Marco 1](docs/demonstracao-marco1.md)
 - [Roadmap](ROADMAP.md)
 
 ## Equipe

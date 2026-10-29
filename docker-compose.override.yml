@@ -16,7 +16,10 @@ services:
       - "5432:5432" # acesso pelo DBeaver/pgAdmin durante o desenvolvimento
 
   auth:
-    <<: *dev-python
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+      # Cria admin, coordenacao e três professores com a DEMO_SENHA do .env.
+      USUARIOS_DEMO: "true"
     volumes:
       - ./services/auth:/servico
       - auth-chaves:/servico/chaves

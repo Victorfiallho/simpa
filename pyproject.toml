@@ -10,6 +10,8 @@ line-length = 100
 target-version = "py311"
 # Cada serviço tem o próprio pacote `app`; isto faz o ruff tratá-lo como código do projeto.
 src = ["services/auth", "services/academico", "services/analitico"]
+# Migrações são geradas pelo Alembic; revisadas à mão, mas fora do padrão de estilo.
+extend-exclude = ["services/*/migrations/versions"]
 
 [tool.ruff.lint]
 # E/W = estilo PEP8 | F = erros (variável não usada etc.) | I = ordem dos imports

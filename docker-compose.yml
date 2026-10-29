@@ -55,6 +55,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth_db
       ROOT_PATH: /api/auth
       JWT_EXPIRA_MINUTOS: ${JWT_EXPIRA_MINUTOS:-60}
+      DEMO_SENHA: ${DEMO_SENHA:-}
     volumes:
       - auth-chaves:/servico/chaves
     depends_on:
@@ -69,6 +70,9 @@ services:
       ROOT_PATH: /api/academico
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       AUTH_JWKS_URL: http://auth:8000/.well-known/jwks.json
+      AUTH_URL: http://auth:8000
+      # Usada só pelo comando de seed, para entrar como admin.
+      DEMO_SENHA: ${DEMO_SENHA:-}
     depends_on:
       postgres:
         condition: service_healthy

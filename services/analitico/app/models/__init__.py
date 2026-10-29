@@ -1,4 +1,8 @@
-"""Models do serviço analítico: ResultadoRisco (ver docs/der.md).
+"""Models do serviço analítico (ver docs/der.md).
 
-Importe aqui todos os models. O Alembic depende disso para gerar as migrações.
+Todos os models precisam ser importados aqui: o Alembic depende disso para gerar as migrações.
 """
+
+from app.models.resultado_risco import ResultadoRisco
+
+__all__ = ["ResultadoRisco"]

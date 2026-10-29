@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     auth_jwks_url: str = "http://auth:8000/.well-known/jwks.json"
+    # API interna do auth, usada para conferir o professor de uma disciplina.
+    auth_url: str = "http://auth:8000"
 
 
 @lru_cache
