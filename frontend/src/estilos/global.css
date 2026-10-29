@@ -784,37 +784,206 @@ p {
 
 .login {
   display: grid;
-  place-items: center;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   min-height: 100vh;
-  padding: 24px 16px;
 }
 
-.login-cartao {
-  display: grid;
-  gap: 16px;
-  width: min(380px, 100%);
-  padding: 32px;
-  border-radius: 24px;
-  background: var(--painel);
+.login-apresentacao {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 64px 64px 0 80px;
+  color: #f2efe7;
 }
 
-.login-marca {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.login-marca img {
-  display: block;
-  width: 220px;
+.login-apresentacao > img {
+  width: 210px;
   height: auto;
 }
 
-.login-marca p {
+.login-chamada {
+  margin: auto 0;
+  padding-bottom: 180px;
+}
+
+.login-chamada h1 {
+  max-width: 560px;
+  font-size: clamp(36px, 4.4vw, 60px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.login-chamada p {
+  max-width: 470px;
+  margin-top: 28px;
+  color: var(--moldura-texto);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.login-grafico {
+  position: absolute;
+  right: 0;
+  bottom: 40px;
+  left: 0;
+  width: 100%;
+  height: 240px;
+}
+
+.login-lado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 32px 40px;
+  background: var(--painel);
+}
+
+.login-form {
+  display: grid;
+  gap: 20px;
+  width: min(460px, 100%);
+  margin: auto 0;
+  padding-top: 48px;
+}
+
+.login-form .sobretitulo {
+  color: var(--verde-escuro);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.login-form h2 {
+  margin-top: -8px;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.login-form .subtitulo {
+  margin-top: -12px;
+  margin-bottom: 8px;
+  color: var(--texto-2);
+  font-size: 16px;
+}
+
+.login-form .campo {
+  gap: 8px;
+  color: var(--texto);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.login-form .campo input {
+  height: 52px;
+  padding: 0 16px;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.login-form .campo input::placeholder {
+  color: #a3a097;
+}
+
+.senha {
+  position: relative;
+}
+
+.senha input {
+  width: 100%;
+  padding-right: 52px !important;
+}
+
+.senha button {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto-2);
+  transform: translateY(-50%);
+}
+
+.esqueci {
+  justify-self: end;
+  margin-top: -12px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--texto-2);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.login-form .botao-primario {
+  height: 52px;
+  font-size: 16px;
+}
+
+.login-ajuda {
+  padding-top: 24px;
+  border-top: 1px solid var(--borda);
+  color: var(--texto-2);
+  font-size: 15px;
+  text-align: center;
+}
+
+.login-rodape {
   color: var(--texto-3);
-  font-size: 13px;
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+
+  .login-apresentacao {
+    padding: 28px 20px 32px;
+  }
+
+  .login-apresentacao > img {
+    width: 150px;
+  }
+
+  .login-chamada {
+    margin: 28px 0 0;
+    padding: 0;
+  }
+
+  .login-chamada h1 {
+    font-size: 28px;
+  }
+
+  .login-chamada p {
+    margin-top: 12px;
+    font-size: 15px;
+  }
+
+  .login-grafico {
+    display: none;
+  }
+
+  .login-lado {
+    padding: 0 20px 28px;
+  }
+
+  .login-form {
+    padding-top: 32px;
+  }
+
+  .login-form h2 {
+    font-size: 28px;
+  }
 }
 
 .campo {
