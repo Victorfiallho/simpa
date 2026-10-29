@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-claro.png">
+    <img src="docs/logo.png" alt="SIMPA" width="360">
+  </picture>
+</p>
+
 # SIMPA — Sistema Inteligente de Monitoramento e Predição Acadêmica
 
 Projeto Integrador — 2º período de Inteligência Artificial — UniEVANGÉLICA.

@@ -799,16 +799,17 @@ p {
 }
 
 .login-marca {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  text-align: center;
 }
 
-.login-marca h1 {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.login-marca img {
+  display: block;
+  width: 220px;
+  height: auto;
 }
 
 .login-marca p {
