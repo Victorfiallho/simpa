@@ -1,38 +1,66 @@
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
-import type { AlunoConsolidado, ResumoInscricao } from '../dados/calculos';
+import { api } from '../api/cliente';
+import type { AlunoPainel, Resposta, ResultadoRisco, Situacao } from '../api/tipos';
+import { useDados } from '../api/useDados';
 import {
-  COR_STATUS,
-  descreverCriterio,
+  COR_SITUACAO,
+  formatarDataHora,
   formatarNota,
   formatarPercentual,
+  ROTULO_SITUACAO,
 } from '../dados/formato';
 import { Selo } from './Selo';
 
-/** Justificativa legível do status da inscrição (RF07, RNF09). */
-function justificar(r: ResumoInscricao): string {
-  switch (r.status) {
-    case 'indeterminado':
-      return 'Sem notas ou sem frequência lançadas. A inscrição fica fora das estatísticas (D09).';
-    case 'em_risco': {
-      const texto = r.criterios.map((c) => descreverCriterio(c, r.media, r.frequencia)).join(' e ');
-      return `${texto[0].toUpperCase()}${texto.slice(1)}.`;
-    }
-    case 'atencao':
-      return 'Acima dos mínimos, mas com média abaixo de 7,00 ou frequência abaixo de 80% (D08).';
-    case 'sem_risco':
-      return 'Média e frequência acima dos mínimos.';
-  }
+function situacaoDe(r: ResultadoRisco): Situacao {
+  return r.status === 'sem_risco' && r.atencao ? 'atencao' : (r.status as Situacao);
+}
+
+/** Transições de risco de cada disciplina, gravadas pelo analítico (D11). */
+function Historico({ aluno }: { aluno: AlunoPainel }) {
+  const historico = useDados(
+    () =>
+      Promise.all(
+        aluno.inscricoes.map((i) =>
+          api<Resposta<ResultadoRisco[]>>(`/analitico/riscos/inscricoes/${i.inscricao_id}/historico`).then(
+            (r) => r.dados.map((linha) => ({ ...linha, disciplina: i.disciplina_nome })),
+          ),
+        ),
+      ).then((listas) => listas.flat().sort((a, b) => b.calculado_em.localeCompare(a.calculado_em))),
+    [aluno.id],
+  );
+
+  if (historico.erro) return <p className="cartao-sub">{historico.erro}</p>;
+  if (!historico.dados) return <p className="cartao-sub">Carregando histórico…</p>;
+  if (historico.dados.length === 0) return <p className="cartao-sub">Nenhuma mudança registrada.</p>;
+
+  return (
+    <ol className="historico">
+      {historico.dados.map((linha) => (
+        <li key={linha.id}>
+          <span className="ponto" style={{ color: COR_SITUACAO[situacaoDe(linha)] }} />
+          <div>
+            <strong>
+              {linha.disciplina}: {ROTULO_SITUACAO[situacaoDe(linha)]}
+            </strong>
+            <small className="num">
+              {formatarDataHora(linha.calculado_em)} · média {formatarNota(linha.media_final)} ·
+              frequência {formatarPercentual(linha.frequencia_final)}
+            </small>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 interface Props {
-  aluno: AlunoConsolidado;
-  periodo: string;
+  aluno: AlunoPainel;
   aoFechar: () => void;
 }
 
-export function DetalheAluno({ aluno, periodo, aoFechar }: Props) {
+export function DetalheAluno({ aluno, aoFechar }: Props) {
   const fechar = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -54,7 +82,7 @@ export function DetalheAluno({ aluno, periodo, aoFechar }: Props) {
         <div className="gaveta-topo">
           <div>
             <p className="cartao-sub num">
-              Matrícula {aluno.matricula} · Turma {aluno.turma} · {periodo}
+              Matrícula {aluno.matricula} · {aluno.turma_nome}
             </p>
             <h2 id="titulo-aluno">{aluno.nome}</h2>
           </div>
@@ -76,7 +104,7 @@ export function DetalheAluno({ aluno, periodo, aoFechar }: Props) {
           <div className="cartao">
             <span>Situação</span>
             <strong>
-              <Selo status={aluno.status} />
+              <Selo situacao={aluno.situacao} />
             </strong>
           </div>
         </div>
@@ -96,22 +124,22 @@ export function DetalheAluno({ aluno, periodo, aoFechar }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {aluno.resumos.map((r) => (
-                  <tr key={r.inscricao.id}>
-                    <td>{r.disciplina.nome}</td>
-                    <td className="direita num">{formatarNota(r.notaN1)}</td>
-                    <td className="direita num">{formatarNota(r.notaN2)}</td>
-                    <td className="direita num">{formatarNota(r.media)}</td>
+                {aluno.inscricoes.map((i) => (
+                  <tr key={i.inscricao_id}>
+                    <td>{i.disciplina_nome}</td>
+                    <td className="direita num">{formatarNota(i.nota_n1)}</td>
+                    <td className="direita num">{formatarNota(i.nota_n2)}</td>
+                    <td className="direita num">{formatarNota(i.media)}</td>
                     <td className="direita num">
-                      {formatarPercentual(r.frequencia)}
-                      {r.aulas > 0 && (
-                        <small style={{ display: 'block', color: 'var(--texto-3)' }}>
-                          {r.faltas} faltas em {r.aulas} aulas
+                      {formatarPercentual(i.frequencia)}
+                      {i.aulas > 0 && (
+                        <small className="detalhe">
+                          {i.faltas} faltas em {i.aulas} aulas
                         </small>
                       )}
                     </td>
                     <td>
-                      <Selo status={r.status} />
+                      <Selo situacao={i.situacao} />
                     </td>
                   </tr>
                 ))}
@@ -119,21 +147,24 @@ export function DetalheAluno({ aluno, periodo, aoFechar }: Props) {
             </table>
           </div>
           <p className="cartao-sub" style={{ marginTop: 10 }}>
-            Média ponderada: N1 com peso 4 e N2 com peso 6. Arredondamento para 2 casas antes de
-            classificar (D06).
+            Média ponderada pelos pesos das avaliações, arredondada para 2 casas antes de classificar.
           </p>
         </section>
 
         <div className="motivos">
-          {aluno.resumos.map((r) => (
-            <div className="motivo" key={r.inscricao.id}>
-              <span className="ponto" style={{ color: COR_STATUS[r.status] }} />
-              <span>
-                <strong>{r.disciplina.nome}:</strong> {justificar(r)}
-              </span>
+          {aluno.inscricoes.map((i) => (
+            <div className="motivo" key={i.inscricao_id}>
+              <span className="ponto" style={{ color: COR_SITUACAO[i.situacao] }} />
+              <span>{i.justificativa}</span>
             </div>
           ))}
         </div>
+
+        <section className="cartao" style={{ marginTop: 16 }}>
+          <h2>Histórico de risco</h2>
+          <p className="cartao-sub">Cada mudança de situação, da mais recente para a mais antiga</p>
+          <Historico aluno={aluno} />
+        </section>
       </aside>
     </div>
   );

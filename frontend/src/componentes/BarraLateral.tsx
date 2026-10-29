@@ -1,5 +1,8 @@
-import { ChartColumn, FileText, LayoutDashboard, Users } from 'lucide-react';
+import { ChartColumn, FileText, LayoutDashboard, LogOut, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+
+import { iniciais } from '../dados/formato';
+import { useSessao } from '../sessao';
 
 const ITENS = [
   { para: '/', rotulo: 'Visão geral', Icone: LayoutDashboard },
@@ -8,9 +11,11 @@ const ITENS = [
   { para: '/relatorios', rotulo: 'Relatórios', Icone: FileText },
 ];
 
-function Marca() {
+const PERFIL = { admin: 'Administração', coordenador: 'Coordenação', professor: 'Professor' };
+
+export function Marca({ tamanho = 34 }: { tamanho?: number }) {
   return (
-    <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true">
+    <svg width={tamanho} height={tamanho} viewBox="0 0 32 32" aria-hidden="true">
       <rect x="4" y="7" width="22" height="5" rx="2.5" fill="#ea7957" />
       <rect x="4" y="14" width="15" height="5" rx="2.5" fill="#e1ba58" />
       <rect x="4" y="21" width="19" height="5" rx="2.5" fill="#8ca573" />
@@ -19,6 +24,8 @@ function Marca() {
 }
 
 export function BarraLateral() {
+  const { usuario, sair } = useSessao();
+
   return (
     <aside className="barra">
       <NavLink to="/" className="marca" aria-label="SIMPA, ir para a visão geral">
@@ -37,10 +44,17 @@ export function BarraLateral() {
         ))}
       </nav>
 
-      <div className="perfil" title="Coordenação">
-        <span className="avatar">CO</span>
-        Coordenação
-      </div>
+      {usuario && (
+        <div className="perfil">
+          <span className="avatar" title={usuario.nome_usuario}>
+            {iniciais(usuario.nome_usuario.replace('.', ' '))}
+          </span>
+          {PERFIL[usuario.role]}
+          <button type="button" className="sair" onClick={sair}>
+            <LogOut size={14} aria-hidden="true" /> Sair
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

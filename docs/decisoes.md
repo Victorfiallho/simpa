@@ -144,6 +144,18 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 - **Exclusão:** `DELETE` de turma, disciplina, aluno e inscrição é lógico (muda o status). Já uma nota ou frequência lançada por engano é apagada de fato, porque não tem histórico próprio, mas só enquanto a disciplina está aberta (D10). O histórico de risco fica no `ResultadoRisco` (D11).
 - **Erros:** todo erro traz um código interno estável, catalogado em [`codigos-erro.md`](codigos-erro.md).
 
+## D19 — Situação consolidada do aluno
+- **Problema:** a D04 diz quando o aluno está Em Risco, mas não diz o que acontece quando ele tem uma disciplina sem dados (D09) e as outras sem risco.
+- **Decisão:** o aluno fica **Em risco** se qualquer inscrição estiver em risco. Senão, inscrições sem dados são ignoradas e ele fica **Sem risco** (com o sinal de **Atenção** se alguma disciplina estiver na faixa da D08). Só fica **Indeterminado** se nenhuma inscrição tiver dados suficientes.
+- **Quais inscrições contam:** ativas e concluídas. Trancadas e canceladas ficam fora do risco e dos indicadores.
+- **Na tela e nos relatórios:** a API devolve `status` (classe formal do RF07) e `atencao` (sinal da D08), e também `situacao`, que junta os dois nas quatro categorias visuais: Em risco, Atenção, Sem risco e Indeterminado.
+
+## D20 — Onde os indicadores são calculados
+- **Decisão:** o analítico não guarda cópia das notas. A cada consulta, busca as inscrições do recorte na rota interna do acadêmico (`/internal/inscricoes`) e calcula tudo na hora, em funções puras com `Decimal`. Só o histórico de risco é persistido (`ResultadoRisco`, D11).
+- **Recálculo do risco:** o worker recebe cada evento do acadêmico, recalcula a inscrição e grava uma linha nova só se a classificação mudou. O comando `python -m app.comandos.recalcular` faz o mesmo para todas as inscrições de uma vez.
+- **Painel:** a interface usa uma rota única, `GET /painel`, que entrega indicadores, situação por aluno e os dados dos gráficos. Isso evita várias chamadas por tela.
+- **Consequências:** os números são sempre os atuais, sem risco de ficarem desatualizados. O custo é uma chamada HTTP ao acadêmico por consulta, o que é irrelevante no tamanho do projeto. Se crescer, o caminho é guardar um resumo por inscrição no analítico, atualizado pelos mesmos eventos.
+
 ---
 
 ## Princípios gerais adotados

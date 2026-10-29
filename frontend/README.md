@@ -2,18 +2,21 @@
 
 Interface web do SIMPA em **React + Vite + TypeScript** ([D12](../docs/decisoes.md#d12--interface-frontend)).
 
-| Tela | Rota | Situação |
-|---|---|---|
-| Visão geral | `/` | Pronta, com dados de demonstração |
-| Alunos (lista, busca, filtros e detalhe do aluno) | `/alunos` | Pronta, com dados de demonstração |
-| Análises | `/analises` | Fase 2 |
-| Relatórios | `/relatorios` | Fase 2 |
+| Tela | Rota | O que mostra | Dados |
+|---|---|---|---|
+| Login | — | Entrada com e-mail e senha | `POST /api/auth/login` |
+| Visão geral | `/` | Indicadores, distribuição das médias, frequência × média, alunos prioritários, situação por disciplina | `GET /api/analitico/painel` |
+| Alunos | `/alunos` | Lista com busca e filtro; gaveta com notas, justificativas e histórico de risco | `/painel` e `/riscos/inscricoes/{id}/historico` |
+| Análises | `/analises` | Estatística descritiva, ranking, evolução N1 → acumulado, janela parcial | `GET /api/analitico/indicadores/...` |
+| Relatórios | `/relatorios` | Download em CSV, XLSX e PDF com filtros | `GET /api/analitico/relatorios/inscricoes` |
+
+Os filtros de período e turma, no topo, valem para todas as telas.
 
 ## Rodar
 
-Com o Docker, o front já sobe junto com o resto: `docker compose up --build` e acesse http://localhost.
+Com o Docker, o front já sobe junto com o resto: `docker compose up --build -d`, depois o seed (ver README da raiz) e acesse http://localhost.
 
-Para desenvolver com recarga instantânea (precisa do [Node.js](https://nodejs.org/) 20.19 ou mais novo):
+Para desenvolver com recarga instantânea (precisa do [Node.js](https://nodejs.org/) 20.19 ou mais novo e do Docker rodando, porque a tela usa a API):
 
 ```bash
 cd frontend
@@ -21,7 +24,7 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-O `npm run dev` repassa as chamadas `/api` para o gateway em `http://localhost`, então deixe o Docker rodando se a tela usar a API.
+O `npm run dev` repassa as chamadas `/api` para o gateway em `http://localhost`.
 
 Antes de commitar, confira se o TypeScript e o build passam:
 
@@ -34,26 +37,25 @@ npm run build
 ```
 src/
   main.tsx               ponto de entrada
-  App.tsx                rotas e filtro de turma
+  App.tsx                login, rotas, filtros e carregamento do painel
+  sessao.tsx             sessão do usuário (token no sessionStorage)
+  api/
+    cliente.ts           chamadas ao gateway com o token; download de relatórios
+    tipos.ts             tipos das respostas da API
+    useDados.ts          carregamento com estados de espera e erro
   estilos/global.css     cores, tipografia e estilos de todas as telas
-  componentes/           barra lateral, cabeçalho, selo de status, gráficos auxiliares
+  componentes/           barra lateral, cabeçalho, selo de situação, gaveta do aluno, gráficos auxiliares
   paginas/               uma tela por arquivo
-  dados/
-    tipos.ts             tipos que espelham o DER
-    calculos.ts          média, frequência e classificação de risco (D04–D09)
-    painel.ts            monta os números e séries que as telas exibem
-    demonstracao.ts      base sintética usada até a API existir
-    formato.ts           formatação pt-BR, rótulos e cores dos status
+  dados/formato.ts       formatação pt-BR, rótulos e cores das situações
 ```
+
+O frontend **não calcula** média, frequência nem risco: só exibe o que o serviço analítico devolve. As regras ficam num lugar só, no backend.
 
 ## Regras visuais
 
-- **Cores de status:** coral = Em risco, amarelo = Atenção, verde = Sem risco, azul = Indeterminado. Nunca use essas cores para outra coisa.
-- **Status sempre escrito junto da cor** (componente `Selo`), nunca só a cor (RNF12).
+- **Cores de situação:** coral = Em risco, amarelo = Atenção, verde = Sem risco, azul = Indeterminado. Nunca use essas cores para outra coisa.
+- **Situação sempre escrita junto da cor** (componente `Selo`), nunca só a cor (RNF12).
 - **Títulos são o nome da tela**, sem slogans. Explicação longa vai para a documentação, não para a tela.
-- **Números** usam a classe `num` (algarismos de largura fixa) e a formatação de `dados/formato.ts`.
+- **Números** usam a classe `num` (algarismos de largura fixa) e a formatação de `dados/formato.ts`. Decimais chegam da API como texto (`"7.50"`) e só viram número para desenhar gráficos.
 - **Ícones** só do Lucide (`lucide-react`), com o mesmo traço.
-
-## Ligar à API
-
-Hoje `App.tsx` usa `gerarBaseDemonstracao()`. Quando as rotas de indicadores do analítico existirem (ROADMAP 2.3), troque essa base por chamadas a `/api/analitico/...` e `/api/academico/...`, mantendo o formato de `Painel` (`dados/painel.ts`) para as telas não mudarem.
+- Toda tela que busca dados usa o componente `Conteudo`, que já trata carregamento e erro.

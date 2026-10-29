@@ -26,6 +26,7 @@ _bearer = HTTPBearer(auto_error=False)
 class UsuarioAtual(BaseModel):
     id: int
     role: str
+    nome: str | None = None
 
 
 @lru_cache
@@ -59,4 +60,4 @@ def usuario_atual(
 
     if dados.get("role") not in ROLES or not str(dados["sub"]).isdigit():
         raise nao_autenticado
-    return UsuarioAtual(id=int(dados["sub"]), role=dados["role"])
+    return UsuarioAtual(id=int(dados["sub"]), role=dados["role"], nome=dados.get("nome"))

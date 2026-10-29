@@ -19,8 +19,8 @@ extend-exclude = ["services/*/migrations/versions"]
 select = ["E", "W", "F", "I", "N", "B", "S", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-# Nos testes, assert e senhas falsas fixas são esperados
-"**/tests/**" = ["S101", "S105", "S106"]
+# Nos testes, assert e senhas falsas fixas são esperados; `Decimal as D` deixa as contas legíveis
+"**/tests/**" = ["S101", "S105", "S106", "N817"]
 
 # ---------- Testes (RNF07) ----------
 # Cada serviço tem o próprio pytest.ini; rode `pytest` dentro de services/<servico>.
