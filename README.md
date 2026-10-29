@@ -27,7 +27,7 @@ flowchart LR
 | Container | Papel | Requisitos |
 |---|---|---|
 | `gateway` | Única porta de entrada; encaminha `/api/<serviço>/` e gera o `X-Request-ID` | RF12, RNF15 |
-| `frontend` | Interface (a partir do protótipo do Figma; stack em definição, D12) | RF04, RF06, RNF11, RNF12 |
+| `frontend` | Interface web em React (D12) | RF04, RF06, RNF11, RNF12 |
 | `auth` | Login, emissão de JWT (RS256), usuários e perfis | RF09, D03, D15 |
 | `academico` | Turmas, disciplinas, alunos, inscrições, notas e frequência | RF01–RF04, RF08, D10 |
 | `analitico` | Indicadores, risco, gráficos e relatórios | RF05–RF07, RF11 |
@@ -39,6 +39,7 @@ flowchart LR
 
 | Camada | Tecnologia |
 |---|---|
+| Interface | React + Vite + TypeScript, Recharts, Lucide, fonte Inter |
 | APIs | FastAPI + Pydantic |
 | Persistência | SQLAlchemy + Alembic + PostgreSQL |
 | Mensageria | RabbitMQ (pika) |
@@ -67,7 +68,7 @@ Com tudo de pé:
 
 | Endereço | O que é |
 |---|---|
-| http://localhost | Sistema (por enquanto, uma página com links) |
+| http://localhost | Sistema (Visão geral e Alunos, por enquanto com dados de demonstração) |
 | http://localhost/api/auth/docs | Swagger do auth |
 | http://localhost/api/academico/docs | Swagger do acadêmico |
 | http://localhost/api/analitico/docs | Swagger do analítico |
@@ -117,7 +118,7 @@ docker-compose.yml           todos os containers
 docker-compose.override.yml  ajustes de desenvolvimento (lido automaticamente)
 gateway/nginx.conf           rotas do gateway
 infra/postgres/init.sql      cria um banco por serviço
-frontend/                    interface (aguardando D12)
+frontend/                    interface em React + Vite + TypeScript (ver frontend/README.md)
 services/
   auth/                      ┐
   academico/                 ├ mesma organização interna:

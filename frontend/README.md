@@ -1,17 +1,59 @@
-# Frontend
+# Frontend do SIMPA
 
-Pasta reservada para a interface do SIMPA, que será construída a partir do protótipo do Figma.
+Interface web do SIMPA em **React + Vite + TypeScript** ([D12](../docs/decisoes.md#d12--interface-frontend)).
 
-Hoje o container serve só uma página estática (`public/index.html`) com links para o Swagger de cada serviço.
+| Tela | Rota | Situação |
+|---|---|---|
+| Visão geral | `/` | Pronta, com dados de demonstração |
+| Alunos (lista, busca, filtros e detalhe do aluno) | `/alunos` | Pronta, com dados de demonstração |
+| Análises | `/analises` | Fase 2 |
+| Relatórios | `/relatorios` | Fase 2 |
 
-## Antes de começar
+## Rodar
 
-1. Registrar a decisão **D12** em `docs/decisoes.md`: qual stack será usada (ex.: React + Vite).
-2. Mapear cada tela do Figma para as rotas da API que ela consome.
-3. Trocar o `Dockerfile` por um build em dois estágios: compilar o projeto e servir os arquivos com nginx.
+Com o Docker, o front já sobe junto com o resto: `docker compose up --build` e acesse http://localhost.
 
-## Regras que valem para qualquer stack
+Para desenvolver com recarga instantânea (precisa do [Node.js](https://nodejs.org/) 20.19 ou mais novo):
 
-- O front fala **só com o gateway**, por caminhos relativos (`/api/academico/...`). Nunca chama um serviço direto por porta.
-- O token JWT vai no cabeçalho `Authorization: Bearer <token>`.
-- Status de risco sempre escrito junto da cor, nunca só a cor (RNF12).
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+```
+
+O `npm run dev` repassa as chamadas `/api` para o gateway em `http://localhost`, então deixe o Docker rodando se a tela usar a API.
+
+Antes de commitar, confira se o TypeScript e o build passam:
+
+```bash
+npm run build
+```
+
+## Organização
+
+```
+src/
+  main.tsx               ponto de entrada
+  App.tsx                rotas e filtro de turma
+  estilos/global.css     cores, tipografia e estilos de todas as telas
+  componentes/           barra lateral, cabeçalho, selo de status, gráficos auxiliares
+  paginas/               uma tela por arquivo
+  dados/
+    tipos.ts             tipos que espelham o DER
+    calculos.ts          média, frequência e classificação de risco (D04–D09)
+    painel.ts            monta os números e séries que as telas exibem
+    demonstracao.ts      base sintética usada até a API existir
+    formato.ts           formatação pt-BR, rótulos e cores dos status
+```
+
+## Regras visuais
+
+- **Cores de status:** coral = Em risco, amarelo = Atenção, verde = Sem risco, azul = Indeterminado. Nunca use essas cores para outra coisa.
+- **Status sempre escrito junto da cor** (componente `Selo`), nunca só a cor (RNF12).
+- **Títulos são o nome da tela**, sem slogans. Explicação longa vai para a documentação, não para a tela.
+- **Números** usam a classe `num` (algarismos de largura fixa) e a formatação de `dados/formato.ts`.
+- **Ícones** só do Lucide (`lucide-react`), com o mesmo traço.
+
+## Ligar à API
+
+Hoje `App.tsx` usa `gerarBaseDemonstracao()`. Quando as rotas de indicadores do analítico existirem (ROADMAP 2.3), troque essa base por chamadas a `/api/analitico/...` e `/api/academico/...`, mantendo o formato de `Painel` (`dados/painel.ts`) para as telas não mudarem.

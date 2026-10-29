@@ -7,6 +7,10 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
+# Frontend
+node_modules/
+dist/
+
 # Ferramentas
 .pytest_cache/
 .ruff_cache/

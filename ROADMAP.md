@@ -34,7 +34,7 @@ O que já existe no repositório:
 
 - [x] Arquitetura em serviços: `auth`, `academico` e `analitico`, cada um com o próprio banco — D13
 - [x] Cada serviço organizado em camadas (`core`, `models`, `schemas`, `repositories`, `services`, `api`) — RNF01, RNF06
-- [x] Docker Compose com gateway nginx, PostgreSQL, RabbitMQ, os três serviços, o worker do analítico e o frontend provisório — D13, D16
+- [x] Docker Compose com gateway nginx, PostgreSQL, RabbitMQ, os três serviços, o worker do analítico e o frontend — D13, D16
 - [x] `GET /health` e Swagger de cada serviço atrás do gateway (`/api/<serviço>/docs`)
 - [x] Configuração por variáveis de ambiente com `pydantic-settings` — RNF04
 - [x] Alembic por serviço, com a URL lida do ambiente e migrações aplicadas na subida
@@ -149,7 +149,8 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [ ] Consulta integrada do aluno (RF04) passa a incluir indicadores e diagnóstico de risco
 
 ### 2.4 Visualizações — RF06, RNF09, RNF12
-- [ ] **Fechar a decisão D12: a stack do frontend**, a partir do protótipo do Figma. O container `frontend` e a rota `/` do gateway já existem (ver `frontend/README.md`).
+- [x] **Decisão D12:** frontend em React + Vite + TypeScript, com identidade visual própria; telas Visão geral e Alunos prontas com dados de demonstração (ver `frontend/README.md`)
+- [ ] Trocar a base de demonstração do frontend pelas rotas de indicadores do analítico
 - [ ] Gráficos: histograma de notas, dispersão (frequência × média), barras por disciplina, linha de evolução, ranking e pizza de status
 - [ ] Todo gráfico com título, eixos, legenda e texto explicativo
 - [ ] Cores semânticas: vermelho = risco, amarelo = atenção, verde = sem risco, azul = informação
@@ -227,7 +228,6 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 
 | Risco | Impacto | Como reduzir |
 |---|---|---|
-| Interface ainda não definida | RF04, RF06, RNF11 e RNF12 ficam sem entrega | Decidir a D12 logo no início da Fase 2 |
 | Erro de arredondamento na fronteira 6,00 / 75,00% | Classificação de risco errada na banca | `Decimal` em todo o fluxo + testes de fronteira (D06) |
 | RBAC adicionado só no fim | Reescrita de várias rotas | Dependência `usuario_atual` desde a Fase 1 |
 | Trabalho concentrado em poucas pessoas | Atrasos e domínio desigual na arguição | Issues com responsável e revisão cruzada em PR |
