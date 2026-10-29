@@ -1,6 +1,5 @@
 import { type FormEvent, useState } from 'react';
 
-import { Marca } from '../componentes/BarraLateral';
 import { useSessao } from '../sessao';
 
 export function Login() {
@@ -31,11 +30,10 @@ export function Login() {
     <main className="login">
       <form className="login-cartao" onSubmit={enviar} noValidate>
         <div className="login-marca">
-          <Marca tamanho={40} />
-          <div>
-            <h1>SIMPA</h1>
-            <p>Monitoramento e predição acadêmica</p>
-          </div>
+          <h1>
+            <img src="/logo.png" alt="SIMPA" width={220} height={47} />
+          </h1>
+          <p>Sistema Inteligente de Monitoramento e Predição Acadêmica</p>
         </div>
 
         {expirou && !erro && <p className="aviso">Sua sessão expirou. Entre de novo.</p>}
