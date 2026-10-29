@@ -35,7 +35,7 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 | Exportar relatórios | ✔ | ✔ | |
 | Reabrir turma/disciplina encerrada | ✔ | | |
 
-- **Consequência:** `Disciplina.professor_id` passa a ser uma FK para `Usuario`, e não mais texto livre.
+- **Consequência:** `Disciplina.professor_id` passa a guardar o id de um `Usuario`, e não mais texto livre. Como `Usuario` fica no serviço auth, esse id não é uma FK no banco (ver D13).
 
 ## D04 — Nível do cálculo de risco
 - **Problema:** um risco calculado só na média global mascara a reprovação em uma disciplina isolada.
@@ -77,8 +77,54 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 - **Decisão:** **(c).** Uma linha nova é gravada quando `status`, `atencao` ou `criterios_violados` diferirem do último `ResultadoRisco` da inscrição, ou quando a inscrição ainda não tiver nenhum.
 - **Consequências:** o histórico registra só as transições (ex.: Sem Risco → Em Risco em 12/10), que é o que importa para auditoria e para o RF07. A média e a frequência *atuais* continuam sendo calculadas sob demanda pelo service (princípio de dados derivados). A `media_final` e a `frequencia_final` gravadas mostram os valores no momento da transição.
 
+## D12 — Interface (frontend)
+- **Problema:** o RF04, o RF06, o RNF11 e o RNF12 citam uma "interface", mas o SRS não define qual.
+- **Status:** **pendente.** A interface será construída a partir do protótipo do Figma; a stack (ex.: React + Vite) será registrada aqui.
+- **Já decidido:** o front roda no próprio container (`frontend/`) e fala **só com o gateway**, nunca direto com um serviço.
+
+## D13 — Arquitetura em serviços, e não monolito
+- **Problema:** a orientação do projeto pede uma arquitetura que não seja um monolito, rodando localmente com Docker.
+- **Opções:** (a) monolito em camadas; (b) um microsserviço por entidade; (c) poucos serviços, divididos por responsabilidade de negócio.
+- **Decisão:** **(c)**, com três serviços de backend, cada um com o próprio banco:
+
+| Serviço | Responsabilidade | Requisitos | Tabelas |
+|---|---|---|---|
+| auth | login, emissão de token, usuários e perfis | RF09, D03 | `Usuario`, `LogRequisicao` |
+| acadêmico | turmas, disciplinas, alunos, inscrições, notas e frequência | RF01–RF04, RF08 | `Turma`, `Disciplina`, `Aluno`, `Inscricao`, `Avaliacao`, `Frequencia` |
+| analítico | indicadores, risco, gráficos e relatórios | RF05–RF07, RF11 | `ResultadoRisco` |
+
+  - Na frente de tudo fica um **gateway nginx**, a única porta de entrada: `/api/auth`, `/api/academico`, `/api/analitico` e `/` (frontend).
+  - Um único container PostgreSQL hospeda **um banco por serviço** (`auth_db`, `academico_db`, `analitico_db`). Um serviço nunca lê o banco de outro.
+- **Por que não (b):** um serviço por entidade multiplicaria containers, contratos e pontos de falha sem ganho real para o tamanho do projeto.
+- **Consequências:**
+  - IDs que apontam para outro serviço deixam de ser FK: `Disciplina.professor_id` (auth), `ResultadoRisco.inscricao_id` (acadêmico) e `LogRequisicao.usuario_id`. A existência desses ids é conferida pela aplicação, via API.
+  - Cada serviço tem as próprias migrações (Alembic), testes e `requirements.txt`, e pode ser desenvolvido por uma parte do grupo.
+  - Dentro de cada serviço continua valendo a organização em camadas: `core`, `models`, `schemas`, `repositories`, `services`, `api`.
+
+## D14 — Comunicação entre os serviços
+- **Decisão:** dois tipos de comunicação.
+  - **Síncrona (HTTP):** quando quem chama precisa da resposta para continuar. Ex.: o analítico busca as notas de uma inscrição em `/internal/...` no acadêmico. As rotas `/internal` são bloqueadas no gateway e só existem na rede interna do Docker.
+  - **Assíncrona (eventos no RabbitMQ):** quando quem chama só precisa avisar. Ex.: ao gravar uma nota, o acadêmico publica `avaliacao.alterada {inscricao_id}` na exchange `simpa.eventos`; o worker do analítico consome e recalcula o risco (RF03, D11).
+- **Por que eventos no recálculo do risco:** o lançamento da nota não espera o cálculo, e se o analítico estiver fora do ar as mensagens ficam guardadas na fila até ele voltar.
+- **Regras:**
+  - Publicar o evento só **depois** do commit, para não anunciar algo que foi desfeito.
+  - O consumidor confirma (ack) a mensagem só depois de processá-la. Se falhar, ela vai para a fila `analitico.recalculo-risco.falhas`, visível no painel do RabbitMQ.
+  - O `request_id` da requisição original viaja dentro do evento, para os logs dos dois serviços poderem ser ligados (RF12).
+
+## D15 — Tokens assinados só pelo auth (RS256 + JWKS)
+- **Problema:** com uma senha compartilhada (HS256), qualquer serviço que conhece a senha também consegue emitir tokens.
+- **Decisão:** o auth assina os tokens com uma **chave privada RSA** (RS256), gerada na primeira subida e guardada em um volume Docker. A chave pública fica em `/.well-known/jwks.json`; o acadêmico e o analítico a usam para validar os tokens.
+- **Consequências:** só o auth emite tokens. Não há segredo de JWT para configurar no `.env`. O token leva `sub` (id do usuário), `role` (D03), `iss` e `exp`.
+
+## D16 — PostgreSQL no lugar do SQLite
+- **Problema:** o SQLite não guarda `Decimal` de verdade e não respeita a precisão de `Numeric`, o que ameaça a regra de arredondamento da D06.
+- **Decisão:** PostgreSQL 17 em container, também no desenvolvimento. O SQLite fica só para testes automatizados que precisarem de banco.
+- **Consequências:** `Numeric(4, 2)` para `nota`, `peso` e `media_final`; **`Numeric(5, 2)` para `frequencia_final`**, porque 100,00% tem cinco dígitos.
+
 ---
 
 ## Princípios gerais adotados
 - **Sem exclusão física** de entidades com histórico: o DELETE apenas altera o status para inativo.
 - **Dados derivados** (médias, percentuais, risco) são recalculados no service sempre que uma avaliação ou frequência muda. O `ResultadoRisco` é persistido para histórico e auditoria, apenas nas mudanças de classificação (D11).
+- **Uma transação por caso de uso:** os repositórios só fazem `add`/`flush`; o service chama `commit()` uma única vez, no fim. Se algo falhar antes, nada é gravado.
+- **Cálculos em funções puras:** estatística e risco recebem números e devolvem resultados, sem banco nem rede, para serem testados com valores calculados à mão.

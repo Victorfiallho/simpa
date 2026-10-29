@@ -15,6 +15,8 @@ htmlcov/
 
 # Segredos e configuração local (RNF04 — nunca versionar)
 .env
+chaves/
+*.pem
 
 # Banco local de desenvolvimento
 *.db

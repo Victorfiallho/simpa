@@ -1,0 +1,39 @@
+# Modo desenvolvimento: o Docker Compose lê este arquivo automaticamente junto com o
+# docker-compose.yml. O código da pasta é montado dentro do container e a API reinicia
+# sozinha a cada alteração, sem precisar reconstruir a imagem.
+#
+# Para subir como em produção (sem este arquivo):
+#   docker compose -f docker-compose.yml up --build
+
+x-dev-python: &dev-python
+  # O polling é necessário para o --reload enxergar alterações feitas no Windows.
+  environment:
+    WATCHFILES_FORCE_POLLING: "true"
+
+services:
+  postgres:
+    ports:
+      - "5432:5432" # acesso pelo DBeaver/pgAdmin durante o desenvolvimento
+
+  auth:
+    <<: *dev-python
+    volumes:
+      - ./services/auth:/servico
+      - auth-chaves:/servico/chaves
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --reload"]
+
+  academico:
+    <<: *dev-python
+    volumes:
+      - ./services/academico:/servico
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --reload"]
+
+  analitico:
+    <<: *dev-python
+    volumes:
+      - ./services/analitico:/servico
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --reload"]
+
+  analitico-worker:
+    volumes:
+      - ./services/analitico:/servico
