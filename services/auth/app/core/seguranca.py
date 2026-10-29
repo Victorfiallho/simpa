@@ -11,6 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import bcrypt
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -64,3 +65,18 @@ def criar_token(usuario_id: int, role: str) -> str:
         "exp": agora + timedelta(minutes=get_settings().jwt_expira_minutos),
     }
     return jwt.encode(payload, chave_privada(), algorithm=ALGORITMO, headers={"kid": KID})
+
+
+# O bcrypt só considera os primeiros 72 bytes; senhas maiores são recusadas no cadastro.
+LIMITE_SENHA_BYTES = 72
+
+
+def gerar_hash_senha(senha: str) -> str:
+    return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
+
+
+def senha_confere(senha: str, senha_hash: str) -> bool:
+    senha_bytes = senha.encode()
+    if len(senha_bytes) > LIMITE_SENHA_BYTES:
+        return False
+    return bcrypt.checkpw(senha_bytes, senha_hash.encode())

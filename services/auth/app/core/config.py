@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     chaves_dir: str = "chaves"
     jwt_expira_minutos: int = 60
 
+    # Em desenvolvimento, cria um usuário de cada perfil na subida (docker-compose.override.yml).
+    usuarios_demo: bool = False
+    demo_senha: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

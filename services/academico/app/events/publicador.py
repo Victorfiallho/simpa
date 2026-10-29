@@ -10,6 +10,7 @@ Eventos previstos (chave de roteamento → dados):
 """
 
 import json
+import logging
 from typing import Any
 
 import pika
@@ -18,6 +19,8 @@ from app.core.config import get_settings
 from app.core.logs import request_id_atual
 
 EXCHANGE = "simpa.eventos"
+
+logger = logging.getLogger("academico.eventos")
 
 
 def publicar(chave: str, dados: dict[str, Any]) -> None:
@@ -39,3 +42,16 @@ def publicar(chave: str, dados: dict[str, Any]) -> None:
                 delivery_mode=pika.DeliveryMode.Persistent,
             ),
         )
+
+
+def publicar_sem_falhar(chave: str, dados: dict[str, Any]) -> None:
+    """Publica e, se o RabbitMQ estiver fora, só registra o erro.
+
+    Usado depois do commit: o dado já foi gravado, então a requisição não deve falhar.
+    O risco daquela inscrição volta a ser recalculado no próximo evento dela.
+    Melhoria futura: padrão outbox, para garantir a entrega.
+    """
+    try:
+        publicar(chave, dados)
+    except Exception:
+        logger.exception("falha ao publicar evento", extra={"dados": {"chave": chave, **dados}})

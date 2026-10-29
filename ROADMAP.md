@@ -12,7 +12,7 @@ Cada fase corresponde a um **Marco** do enunciado. Cada tarefa indica os requisi
 
 ```mermaid
 flowchart LR
-    F0["Fase 0<br/>Fundação<br/>✅ concluída"] --> F1["Fase 1 · Marco 1<br/>Modelos + API básica"]
+    F0["Fase 0<br/>Fundação<br/>✅ concluída"] --> F1["Fase 1 · Marco 1<br/>Modelos + API básica<br/>✅ concluída"]
     F1 --> F2["Fase 2 · Marco 2<br/>Estatística, risco<br/>e visualizações"]
     F2 --> F3["Fase 3 · Marco 3<br/>Segurança, testes<br/>e entrega final"]
     F2 -.-> N2["Nível 2<br/>Predição e<br/>recomendação"]
@@ -22,7 +22,7 @@ flowchart LR
 | Fase | Marco | Semanas (enunciado) | Foco | Status |
 |---|---|---|---|---|
 | 0 | — | 1–3 | Estrutura em serviços, Docker, SRS, DER, decisões | ✅ Concluída |
-| 1 | Marco 1 | 4–7 | Models, migrações, CRUD, contrato da API | ⬜ A fazer |
+| 1 | Marco 1 | 4–7 | Models, migrações, CRUD, contrato da API | ✅ Concluída |
 | 2 | Marco 2 | 8–13 | Indicadores, risco, gráficos, relatórios | ⬜ A fazer |
 | 3 | Marco 3 | 14–19 | Autenticação, RBAC, logs, testes, documentação final | ⬜ A fazer |
 
@@ -42,7 +42,7 @@ O que já existe no repositório:
 - [x] Eventos: publicador no acadêmico, worker consumidor no analítico e fila de falhas — D14
 - [x] Logs JSON com `X-Request-ID` gerado no gateway e propagado nos eventos — RF12
 - [x] Ruff com regras de segurança (`S`) e pytest em cada serviço — RNF02, RNF07
-- [x] SRS v1.0.0, DER por serviço e registro de decisões D01–D16 — RNF05
+- [x] SRS v1.0.0, DER por serviço e registro de decisões D01–D18 — RNF05
 
 ---
 
@@ -52,70 +52,70 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 
 - [ ] **Unificar o nome do projeto.** O README usa *Sistema Inteligente de Monitoramento e **Predição** Acadêmica* e o SRS usa *Sistema **Integrado** de Monitoramento e **Performance** Acadêmica*. Escolher um e corrigir no outro (o nome do enunciado é o do README).
 - [x] **Separar as dependências.** Cada serviço tem o próprio `requirements.txt` só com o necessário para rodar; as ferramentas ficam no `requirements-dev.txt` da raiz.
-- [ ] **Adicionar as dependências que ainda faltam, no serviço e na fase em que forem usadas:** `bcrypt` ou `argon2-cffi` (auth, hash de senha); `pandas`, `numpy`, `matplotlib`, `openpyxl` e `reportlab` (analítico); `httpx` (analítico, para chamar o `/internal` do acadêmico).
+- [ ] **Adicionar as dependências que ainda faltam, no serviço e na fase em que forem usadas:** `pandas`, `numpy`, `matplotlib`, `openpyxl` e `reportlab` (analítico); `httpx` (analítico, para chamar o `/internal` do acadêmico). O `bcrypt` já entrou no auth.
 - [x] **Criar o `main.py`** de cada serviço com a instância do FastAPI e a rota `GET /health`.
 - [ ] **Preencher a tabela "Equipe"** do README com os 8 integrantes e suas responsabilidades. Sugestão: dividir o grupo por serviço (auth, acadêmico, analítico, frontend).
-- [ ] **Configurar CI no GitHub Actions** (`.github/workflows/ci.yml`) rodando `ruff check .`, o `pytest` de cada serviço e `docker compose build` em todo push e PR. Isso prova o RNF02 e o RNF07 automaticamente.
+- [x] **Configurar CI no GitHub Actions** (`.github/workflows/ci.yml`) rodando `ruff check .`, o `pytest` de cada serviço e `docker compose build` em todo push e PR. Isso prova o RNF02 e o RNF07 automaticamente.
 - [ ] **Proteger a branch `main`**: merge só por PR com CI verde e ao menos 1 revisão.
 
 ---
 
-## Fase 1 — Marco 1: Modelos e API básica
+## Fase 1 — Marco 1: Modelos e API básica ✅
 
 **Objetivo do Marco 1 (enunciado):** arquitetura definida, modelagem documentada, classes implementadas e API básica funcional de cadastro e consulta.
 
 ### 1.1 Modelos e banco — RNF08, D01, D02, D13
-- [ ] Criar os models SQLAlchemy de cada serviço, conforme o DER:
+- [x] Criar os models SQLAlchemy de cada serviço, conforme o DER:
   - `services/auth`: `Usuario`, `LogRequisicao`
   - `services/academico`: `Turma`, `Disciplina`, `Aluno`, `Inscricao`, `Avaliacao`, `Frequencia`
   - `services/analitico`: `ResultadoRisco`
-- [ ] Aplicar as restrições da tabela "Restrições que o banco deve garantir" do DER (`UNIQUE`, `CHECK`, `ON DELETE RESTRICT`)
-- [ ] IDs de outro serviço (`professor_id`, `inscricao_id` no analítico, `usuario_id` no log) **sem FK**, como no DER (D13)
-- [ ] Usar `Numeric(4, 2)` para `nota`, `peso` e `media_final`, e `Numeric(5, 2)` para `frequencia_final` (D06, D16: nada de `float`)
-- [ ] Importar todos os models no `app/models/__init__.py` de cada serviço (o Alembic depende disso)
-- [ ] Gerar e revisar a primeira migração de cada serviço: `docker compose exec <serviço> alembic revision --autogenerate -m "cria tabelas iniciais"`
-- [ ] Teste de integração: unicidade de matrícula e de `(aluno_id, disciplina_id)` e bloqueio de exclusão com histórico
+- [x] Aplicar as restrições da tabela "Restrições que o banco deve garantir" do DER (`UNIQUE`, `CHECK`, `ON DELETE RESTRICT`)
+- [x] IDs de outro serviço (`professor_id`, `inscricao_id` no analítico, `usuario_id` no log) **sem FK**, como no DER (D13)
+- [x] Usar `Numeric(4, 2)` para `nota`, `peso` e `media_final`, e `Numeric(5, 2)` para `frequencia_final` (D06, D16: nada de `float`)
+- [x] Importar todos os models no `app/models/__init__.py` de cada serviço (o Alembic depende disso)
+- [x] Gerar e revisar a primeira migração de cada serviço: `docker compose exec <serviço> alembic revision --autogenerate -m "cria tabelas iniciais"`
+- [x] Teste de integração: unicidade de matrícula e de `(aluno_id, disciplina_id)` e bloqueio de exclusão com histórico
 
 ### 1.2 Contrato da API e tratamento de erros — RF08, RF10, RNF02, RNF14
-- [ ] Schema genérico de resposta com `status`, `mensagem`, `dados`, `erro`, `pagina`, `limite`, `total_registros`
-- [ ] Exceções de domínio em `app/core/exceptions.py` de cada serviço (ex.: `RecursoNaoEncontrado`, `RegraDeNegocioViolada`, `DisciplinaEncerrada`), com o mesmo formato de resposta nos três
-- [ ] *Exception handlers* centralizados: validação → 400/422 com **campo, regra e código interno**; não encontrado → 404; erro inesperado → 500 **sem stack trace**
-- [ ] Catálogo de códigos internos de erro em `docs/codigos-erro.md`
+- [x] Schema genérico de resposta com `status`, `mensagem`, `dados`, `erro`, `pagina`, `limite`, `total_registros`
+- [x] Exceções de domínio em `app/core/excecoes.py` de cada serviço (ex.: `RecursoNaoEncontrado`, `RegraDeNegocioViolada`, `DisciplinaEncerrada`), com o mesmo formato de resposta nos três
+- [x] *Exception handlers* centralizados: validação → 400/422 com **campo, regra e código interno**; não encontrado → 404; erro inesperado → 500 **sem stack trace**
+- [x] Catálogo de códigos internos de erro em `docs/codigos-erro.md`
 
 ### 1.3 Schemas (DTOs) — RF01, RF02, RF03, RF10
-- [ ] Schemas `Create`, `Update` e `Read` para cada entidade
-- [ ] Validador de CPF com dígitos verificadores
-- [ ] `frequencia_percentual` existe só no schema de saída (D02)
-- [ ] Validação `0 ≤ faltas ≤ aulas_previstas` e `aulas_previstas > 0`
+- [x] Schemas `Create`, `Update` e `Read` para cada entidade
+- [x] Validador de CPF com dígitos verificadores
+- [x] `frequencia_percentual` existe só no schema de saída (D02)
+- [x] Validação `0 ≤ faltas ≤ aulas_previstas` e `aulas_previstas > 0`
 
 ### 1.4 Repositórios — RNF01
-- [ ] `BaseRepository` genérico (padrão *Repository*) com `obter`, `listar`, `criar`, `atualizar`, `inativar`
-- [ ] Paginação, ordenação e filtros em todas as listagens (RF08)
-- [ ] Nenhum outro módulo acessa a `Session` diretamente
-- [ ] Repositórios só fazem `add`/`flush`; o `commit()` fica no service, uma vez por caso de uso
+- [x] `BaseRepository` genérico (padrão *Repository*) com `obter`, `listar`, `criar`, `atualizar`, `inativar`
+- [x] Paginação, ordenação e filtros em todas as listagens (RF08)
+- [x] Nenhum outro módulo acessa a `Session` diretamente
+- [x] Repositórios só fazem `add`/`flush`; o `commit()` fica no service, uma vez por caso de uso
 
 ### 1.5 Services e rotas CRUD (serviço acadêmico) — RF01, RF02, RF03, D10, D14
-- [ ] `turmas`, `disciplinas`, `alunos`, `inscricoes`, `avaliacoes`, `frequencias`
-- [ ] `DELETE` faz exclusão lógica (status inativo), conforme os princípios gerais
-- [ ] Bloquear criação, edição e exclusão de lançamentos em turma/disciplina `encerrada` (D10)
-- [ ] Encerrar uma turma bloqueia as disciplinas vinculadas (conferindo o status da turma, sem copiá-lo para as disciplinas)
-- [ ] Depois do commit, publicar `avaliacao.alterada`, `frequencia.alterada` ou `inscricao.alterada` com `app/events/publicador.py`
-- [ ] Rotas `/internal/inscricoes/{id}` (notas e frequências de uma inscrição) para o analítico consumir
+- [x] `turmas`, `disciplinas`, `alunos`, `inscricoes`, `avaliacoes`, `frequencias`
+- [x] `DELETE` faz exclusão lógica (status inativo), conforme os princípios gerais
+- [x] Bloquear criação, edição e exclusão de lançamentos em turma/disciplina `encerrada` (D10)
+- [x] Encerrar uma turma bloqueia as disciplinas vinculadas (conferindo o status da turma, sem copiá-lo para as disciplinas)
+- [x] Depois do commit, publicar `avaliacao.alterada`, `frequencia.alterada` ou `inscricao.alterada` com `app/events/publicador.py`
+- [x] Rotas `/internal/inscricoes/{id}` (notas e frequências de uma inscrição) para o analítico consumir
 
 ### 1.6 Consulta integrada do aluno (serviço acadêmico) — RF04
-- [ ] `GET /alunos/{id}` e `GET /alunos/matricula/{matricula}` com cadastro, notas e frequências
-- [ ] Aluno inexistente → 404
+- [x] `GET /alunos/{id}` e `GET /alunos/matricula/{matricula}` com cadastro, notas e frequências
+- [x] Aluno inexistente → 404
 - [ ] Indicadores e risco entram na resposta na Fase 2 (vêm do analítico)
 
 ### 1.7 Dados sintéticos — RNF04, RNF08
-- [ ] `scripts/seed.py` gerando turmas, disciplinas, alunos, inscrições, notas e frequências **totalmente sintéticos**, pelas APIs (via gateway), e não direto nos bancos
-- [ ] Incluir casos de propósito: aluno com média baixa, aluno com frequência baixa, aluno na fronteira (6,00 / 75,00%) e aluno sem dados (D09)
+- [x] Seed (`docker compose exec academico python -m app.comandos.seed`) gerando turmas, disciplinas, alunos, inscrições, notas e frequências **totalmente sintéticos**, pela API, e não direto nos bancos
+- [x] Incluir casos de propósito: aluno com média baixa, aluno com frequência baixa, aluno na fronteira (6,00 / 75,00%) e aluno sem dados (D09)
 
 ### 1.8 Documentação do Marco 1 — RNF05
-- [ ] **Diagrama UML de casos de uso** em `docs/` (exigido pelo RNF05 e ainda ausente)
-- [ ] **Diagrama UML de classes** em `docs/` (exigido pelo RNF05 e ainda ausente)
-- [ ] Atualizar o README com o passo de seed
-- [ ] Roteiro de demonstração do Marco 1 (cadastrar turma → disciplina → aluno → inscrição → nota → consultar aluno)
+- [x] **Diagrama UML de casos de uso** em `docs/uml.md` (RNF05)
+- [x] **Diagrama UML de classes** em `docs/uml.md` (RNF05)
+- [x] Atualizar o README com o passo de seed
+- [x] Roteiro de demonstração do Marco 1 em `docs/demonstracao-marco1.md`
 
 **✔ Pronto quando:** `docker compose up` sobe tudo, o Swagger do acadêmico mostra os CRUDs, o seed popula o banco, a consulta do aluno funciona e o CI está verde.
 
@@ -182,14 +182,14 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 
 ### 3.1 Autenticação e RBAC — RF09, D03, D15
 - [x] Emissão de JWT RS256 com `sub`, `role` e expiração (`criar_token` no auth) e validação via JWKS nos outros serviços
-- [ ] Hash de senha com Argon2 ou bcrypt (Restrição 1)
-- [ ] `POST /login` no auth (pelo gateway: `/api/auth/login`) usando `criar_token`
-- [ ] Login inválido → 401 com mensagem genérica, sem dizer se foi o e-mail ou a senha (RF09 CA01)
-- [ ] Rota protegida sem token → 401
+- [x] Hash de senha com bcrypt (Restrição 1)
+- [x] `POST /login` no auth (pelo gateway: `/api/auth/login`) usando `criar_token`
+- [x] Login inválido → 401 com mensagem genérica, sem dizer se foi o e-mail ou a senha (RF09 CA01)
+- [x] Rota protegida sem token → 401 (todas as rotas do acadêmico exigem token, D17)
 - [ ] Dependências de autorização seguindo a tabela da D03
 - [ ] Professor só lança e consulta dados das próprias disciplinas
 - [ ] Só Admin reabre turma/disciplina encerrada (D10)
-- [ ] Seed cria um usuário de cada perfil para a demonstração
+- [x] Um usuário de cada perfil para a demonstração (`USUARIOS_DEMO`)
 
 ### 3.2 Logs e auditoria — RF12, RNF16
 - [x] **Correlation ID** gerado no gateway, devolvido no cabeçalho de resposta e propagado nos eventos
