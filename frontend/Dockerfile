@@ -1,4 +1,12 @@
-# Provisório: serve uma página estática até a stack do frontend ser definida (D12).
-# Quando o front existir, este Dockerfile passa a compilar o projeto e servir o resultado.
+# Estágio 1: compila o React (TypeScript + Vite) em arquivos estáticos.
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-fund --no-audit
+COPY . .
+RUN npm run build
+
+# Estágio 2: serve só o resultado com nginx; o Node não vai para a imagem final.
 FROM nginx:1.27-alpine
-COPY public/ /usr/share/nginx/html/
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html

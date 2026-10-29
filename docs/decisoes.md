@@ -78,9 +78,21 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 - **Consequências:** o histórico registra só as transições (ex.: Sem Risco → Em Risco em 12/10), que é o que importa para auditoria e para o RF07. A média e a frequência *atuais* continuam sendo calculadas sob demanda pelo service (princípio de dados derivados). A `media_final` e a `frequencia_final` gravadas mostram os valores no momento da transição.
 
 ## D12 — Interface (frontend)
-- **Problema:** o RF04, o RF06, o RNF11 e o RNF12 citam uma "interface", mas o SRS não define qual.
-- **Status:** **pendente.** A interface será construída a partir do protótipo do Figma; a stack (ex.: React + Vite) será registrada aqui.
-- **Já decidido:** o front roda no próprio container (`frontend/`) e fala **só com o gateway**, nunca direto com um serviço.
+- **Problema:** o RF04, o RF06, o RNF11 e o RNF12 citam uma "interface", mas o SRS não define qual. O primeiro protótipo (HTML gerado a partir do Figma) foi descartado por parecer genérico: paleta roxa, slogans no lugar de títulos, caracteres no lugar de ícones e textos explicativos em excesso.
+- **Decisão:** aplicação **React + Vite + TypeScript** em `frontend/`, com gráficos em Recharts, ícones Lucide e a fonte Inter. A identidade visual segue uma referência de dashboard escolhida pelo grupo: moldura escura, área de conteúdo em tom creme e quatro cores fortes.
+- **Cores e status (RNF12):** as quatro cores da paleta são exatamente os quatro status, sempre acompanhadas do texto:
+
+| Cor | Hex | Status |
+|---|---|---|
+| Coral | `#EA7957` | Em risco |
+| Amarelo | `#E1BA58` | Atenção |
+| Verde | `#8CA573` | Sem risco |
+| Azul | `#7A80F0` | Indeterminado (informação) |
+
+- **Consequências:**
+  - O front fala **só com o gateway** (`/api/...`), nunca direto com um serviço.
+  - Enquanto a API de indicadores não existe, as telas usam uma base de demonstração sintética e determinística (`src/dados/demonstracao.ts`), com as mesmas regras de cálculo do backend (`src/dados/calculos.ts`). Quando a API existir, a tela passa a só exibir o resultado.
+  - No Docker, o front é compilado num estágio Node e servido por nginx; em desenvolvimento, `npm run dev` usa o Vite com recarga instantânea.
 
 ## D13 — Arquitetura em serviços, e não monolito
 - **Problema:** a orientação do projeto pede uma arquitetura que não seja um monolito, rodando localmente com Docker.
