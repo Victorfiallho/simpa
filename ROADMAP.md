@@ -13,7 +13,7 @@ Cada fase corresponde a um **Marco** do enunciado. Cada tarefa indica os requisi
 ```mermaid
 flowchart LR
     F0["Fase 0<br/>Fundação<br/>✅ concluída"] --> F1["Fase 1 · Marco 1<br/>Modelos + API básica<br/>✅ concluída"]
-    F1 --> F2["Fase 2 · Marco 2<br/>Estatística, risco<br/>e visualizações"]
+    F1 --> F2["Fase 2 · Marco 2<br/>Estatística, risco<br/>e visualizações<br/>✅ concluída"]
     F2 --> F3["Fase 3 · Marco 3<br/>Segurança, testes<br/>e entrega final"]
     F2 -.-> N2["Nível 2<br/>Predição e<br/>recomendação"]
     N2 -.-> F3
@@ -23,7 +23,7 @@ flowchart LR
 |---|---|---|---|---|
 | 0 | — | 1–3 | Estrutura em serviços, Docker, SRS, DER, decisões | ✅ Concluída |
 | 1 | Marco 1 | 4–7 | Models, migrações, CRUD, contrato da API | ✅ Concluída |
-| 2 | Marco 2 | 8–13 | Indicadores, risco, gráficos, relatórios | ⬜ A fazer |
+| 2 | Marco 2 | 8–13 | Indicadores, risco, gráficos, relatórios | ✅ Concluída (Nível 2 opcional em aberto) |
 | 3 | Marco 3 | 14–19 | Autenticação, RBAC, logs, testes, documentação final | ⬜ A fazer |
 
 ---
@@ -42,7 +42,7 @@ O que já existe no repositório:
 - [x] Eventos: publicador no acadêmico, worker consumidor no analítico e fila de falhas — D14
 - [x] Logs JSON com `X-Request-ID` gerado no gateway e propagado nos eventos — RF12
 - [x] Ruff com regras de segurança (`S`) e pytest em cada serviço — RNF02, RNF07
-- [x] SRS v1.0.0, DER por serviço e registro de decisões D01–D18 — RNF05
+- [x] SRS v1.0.0, DER por serviço e registro de decisões D01–D20 — RNF05
 
 ---
 
@@ -52,7 +52,7 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 
 - [ ] **Unificar o nome do projeto.** O README usa *Sistema Inteligente de Monitoramento e **Predição** Acadêmica* e o SRS usa *Sistema **Integrado** de Monitoramento e **Performance** Acadêmica*. Escolher um e corrigir no outro (o nome do enunciado é o do README).
 - [x] **Separar as dependências.** Cada serviço tem o próprio `requirements.txt` só com o necessário para rodar; as ferramentas ficam no `requirements-dev.txt` da raiz.
-- [ ] **Adicionar as dependências que ainda faltam, no serviço e na fase em que forem usadas:** `pandas`, `numpy`, `matplotlib`, `openpyxl` e `reportlab` (analítico); `httpx` (analítico, para chamar o `/internal` do acadêmico). O `bcrypt` já entrou no auth.
+- [ ] **Adicionar as dependências que ainda faltam, no serviço e na fase em que forem usadas:** `numpy` (analítico), se o grupo for para o Nível 2. Já entraram `bcrypt` (auth), `httpx`, `openpyxl` e `reportlab` (analítico); os cálculos usam `Decimal` da biblioteca padrão, sem `pandas`.
 - [x] **Criar o `main.py`** de cada serviço com a instância do FastAPI e a rota `GET /health`.
 - [ ] **Preencher a tabela "Equipe"** do README com os 8 integrantes e suas responsabilidades. Sugestão: dividir o grupo por serviço (auth, acadêmico, analítico, frontend).
 - [x] **Configurar CI no GitHub Actions** (`.github/workflows/ci.yml`) rodando `ruff check .`, o `pytest` de cada serviço e `docker compose build` em todo push e PR. Isso prova o RNF02 e o RNF07 automaticamente.
@@ -121,50 +121,50 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 
 ---
 
-## Fase 2 — Marco 2: Módulo analítico
+## Fase 2 — Marco 2: Módulo analítico ✅
 
 **Objetivo do Marco 2 (enunciado):** indicadores estatísticos, visualizações, integração dos cálculos à API e interpretação dos resultados.
 
 Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas rotas `/internal`.
 
 ### 2.1 Serviço de estatística — RF05, D05, D06, D07
-- [ ] `app/services/estatistica.py` em funções puras (sem banco nem rede) com média simples, média ponderada, mediana, variância, desvio padrão, maior e menor nota, frequência média
-- [ ] Arredondamento com `Decimal` e `ROUND_HALF_UP` em 2 casas **antes** de qualquer comparação (D06)
-- [ ] Variância populacional × amostral conforme D07, retornando `tipo_variancia`; `null` + "amostra insuficiente" quando n < 2
-- [ ] Agregação por aluno, turma, disciplina e período letivo
-- [ ] Testes unitários com valores calculados à mão
+- [x] `app/services/estatistica.py` em funções puras (sem banco nem rede) com média simples, média ponderada, mediana, variância, desvio padrão, maior e menor nota, frequência média
+- [x] Arredondamento com `Decimal` e `ROUND_HALF_UP` em 2 casas **antes** de qualquer comparação (D06)
+- [x] Variância populacional × amostral conforme D07, retornando `tipo_variancia`; `null` + "amostra insuficiente" quando n < 2
+- [x] Agregação por aluno, turma, disciplina e período letivo
+- [x] Testes unitários com valores calculados à mão
 
 ### 2.2 Serviço de risco — RF07, RNF09, D04, D08, D09, D11
-- [ ] Completar `app/services/risco.py` (já chamado pelo worker a cada evento) calculando o risco **por inscrição**; o aluno fica Em Risco se qualquer inscrição ativa estiver Em Risco (D04)
-- [ ] Justificativa legível, citando disciplina, média e frequência (ex.: `"POO: média 4,50 (< 6,00) — media_baixa"`)
-- [ ] Sinal de **Atenção** quando Sem Risco com média 6,00–6,99 ou frequência 75,00–79,99% (D08)
-- [ ] Status **Indeterminado** para inscrição sem dados (D09)
-- [ ] Gravar novo `ResultadoRisco` só quando a classificação mudar (D11)
-- [ ] Testes obrigatórios: RF07 CA01, CA02, CA03 e as fronteiras 5,994 → Em Risco e 5,995 → Sem Risco
+- [x] `app/services/regras.py` (funções puras) e `app/services/risco.py` (worker) calculando o risco **por inscrição**; o aluno fica Em Risco se qualquer inscrição ativa estiver Em Risco (D04)
+- [x] Justificativa legível, citando disciplina, média e frequência (ex.: `"POO: média 4,50 (< 6,00) — media_baixa"`)
+- [x] Sinal de **Atenção** quando Sem Risco com média 6,00–6,99 ou frequência 75,00–79,99% (D08)
+- [x] Status **Indeterminado** para inscrição sem dados (D09)
+- [x] Gravar novo `ResultadoRisco` só quando a classificação mudar (D11)
+- [x] Testes obrigatórios: RF07 CA01, CA02, CA03 e as fronteiras 5,994 → Em Risco e 5,995 → Sem Risco
 
 ### 2.3 Integração com a API — RF03, RF04, RF05
-- [ ] Recalcular o risco sempre que uma avaliação ou frequência for criada, alterada ou excluída (o caminho do evento até o worker já funciona; falta o cálculo)
-- [ ] Rotas de indicadores no analítico: `/indicadores/alunos/{id}`, `/indicadores/turmas/{id}`, `/indicadores/disciplinas/{id}`, `/indicadores/periodos/{periodo}`
-- [ ] Rota de histórico de risco por inscrição
-- [ ] Consulta integrada do aluno (RF04) passa a incluir indicadores e diagnóstico de risco
+- [x] Recalcular o risco sempre que uma avaliação ou frequência for criada, alterada ou excluída (worker do analítico; `python -m app.comandos.recalcular` refaz todas)
+- [x] Rotas de indicadores no analítico: `/indicadores/alunos/{id}`, `/indicadores/turmas/{id}`, `/indicadores/disciplinas/{id}`, `/indicadores/periodos/{periodo}`
+- [x] Rota de histórico de risco por inscrição (`/riscos/inscricoes/{id}/historico`) e painel consolidado (`/painel`, D20)
+- [x] Consulta integrada do aluno (RF04) com indicadores, diagnóstico e histórico de risco, na gaveta do aluno na interface
 
 ### 2.4 Visualizações — RF06, RNF09, RNF12
-- [x] **Decisão D12:** frontend em React + Vite + TypeScript, com identidade visual própria; telas Visão geral e Alunos prontas com dados de demonstração (ver `frontend/README.md`)
-- [ ] Trocar a base de demonstração do frontend pelas rotas de indicadores do analítico
-- [ ] Gráficos: histograma de notas, dispersão (frequência × média), barras por disciplina, linha de evolução, ranking e pizza de status
-- [ ] Todo gráfico com título, eixos, legenda e texto explicativo
-- [ ] Cores semânticas: vermelho = risco, amarelo = atenção, verde = sem risco, azul = informação
-- [ ] Status sempre escrito junto da cor ("Em Risco"), nunca só a cor (RNF12)
+- [x] **Decisão D12:** frontend em React + Vite + TypeScript, com identidade visual própria; telas Visão geral, Alunos, Análises e Relatórios (ver `frontend/README.md`)
+- [x] Frontend ligado à API, com tela de login (a base de demonstração foi removida)
+- [x] Gráficos: histograma de notas, dispersão (frequência × média), barras por disciplina e turma, evolução N1 → acumulado, ranking de disciplinas e anéis de situação
+- [x] Todo gráfico com título, eixos, legenda e texto explicativo
+- [x] Cores semânticas: coral = risco, amarelo = atenção, verde = sem risco, azul = informação (D12)
+- [x] Status sempre escrito junto da cor ("Em Risco"), nunca só a cor (RNF12)
 
 ### 2.5 Relatórios — RF11
-- [ ] Filtros por período, turma, disciplina e status de risco
-- [ ] Exportação em CSV, XLSX (`openpyxl`) e PDF (`reportlab`)
-- [ ] Cabeçalho com data, hora e usuário que gerou
-- [ ] CPF e e-mail mascarados nos arquivos exportados (RNF04)
+- [x] Filtros por período, turma, disciplina e status de risco
+- [x] Exportação em CSV, XLSX (`openpyxl`) e PDF (`reportlab`)
+- [x] Cabeçalho com data, hora e usuário que gerou
+- [x] CPF e e-mail mascarados nos arquivos exportados (RNF04)
 
 ### 2.6 Nível 2 — Predição e recomendação *(opcional, mas diferencia a nota)*
 - [ ] **Decidir em grupo se o SIMPA vai para o Nível 2** e registrar como decisão
-- [ ] Correlação entre frequência e média (Pearson) por turma e disciplina
+- [x] Correlação entre frequência e média (Pearson) por recorte, exibida no painel e nas análises como associação descritiva
 - [ ] Regressão linear simples para tendência de desempenho (ex.: prever N2 a partir de N1 e frequência), implementada com álgebra matricial (`numpy`) para mostrar a ligação com Álgebra Linear
 - [ ] Recomendações heurísticas a partir dos critérios violados (ex.: "frequência baixa → contato da coordenação")
 - [ ] Explicar os limites do modelo (amostra pequena, dados sintéticos) na documentação e na apresentação

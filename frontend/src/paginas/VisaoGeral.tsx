@@ -4,36 +4,38 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
+  ReferenceLine,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from 'recharts';
 
+import type { Painel, Situacao } from '../api/tipos';
 import { Anel } from '../componentes/Anel';
 import { Dica } from '../componentes/Dica';
 import { Selo } from '../componentes/Selo';
 import {
-  COR_STATUS,
-  descreverCriterio,
-  formatarDecimal,
+  COR_SITUACAO,
   formatarNota,
   formatarPercentual,
   iniciais,
-  ORDEM_STATUS,
-  ROTULO_STATUS,
+  numero,
+  ORDEM_SITUACAO,
+  ROTULO_SITUACAO,
 } from '../dados/formato';
-import type { Painel } from '../dados/painel';
-import type { Status } from '../dados/tipos';
 
-const EIXO = { fontSize: 11, fill: '#8b887f' };
-const GRADE = '#e2ddd0';
+export const EIXO = { fontSize: 11, fill: '#8b887f' };
+export const GRADE = '#e2ddd0';
+const SITUACOES_DO_GRAFICO: Situacao[] = ['sem_risco', 'atencao', 'indeterminado', 'em_risco'];
 
-function Variacao({ valor, sufixo }: { valor: number | null; sufixo: string }) {
-  if (valor === null) return null;
-  const sobe = valor >= 0;
+function Variacao({ atual, anterior, sufixo }: { atual: string | null; anterior: string | null; sufixo: string }) {
+  if (atual === null || anterior === null) return null;
+  const diferenca = Number(atual) - Number(anterior);
+  const sobe = diferenca >= 0;
   return (
     <div className="kpi-rodape">
       <span className={`variacao ${sobe ? 'sobe' : 'desce'}`}>
@@ -41,7 +43,7 @@ function Variacao({ valor, sufixo }: { valor: number | null; sufixo: string }) {
       </span>
       <span className="num">
         {sobe ? '+' : '−'}
-        {formatarNota(Math.abs(valor))}
+        {formatarNota(Math.abs(diferenca))}
       </span>
       {sufixo}
     </div>
@@ -49,60 +51,55 @@ function Variacao({ valor, sufixo }: { valor: number | null; sufixo: string }) {
 }
 
 function Indicadores({ painel }: { painel: Painel }) {
-  const variacaoMedia =
-    painel.mediaGeral !== null && painel.mediaGeralN1 !== null
-      ? painel.mediaGeral - painel.mediaGeralN1
-      : null;
-  const variacaoFrequencia =
-    painel.frequenciaRecente !== null && painel.frequenciaGeral !== null
-      ? painel.frequenciaRecente - painel.frequenciaGeral
-      : null;
-
   return (
     <section className="cartao kpis" aria-label="Indicadores gerais">
       <div className="kpi">
         <p className="kpi-rotulo">Alunos acompanhados</p>
-        <p className="kpi-valor num">{painel.alunos.length}</p>
-        <div className="kpi-rodape">{painel.totalInscricoes} inscrições em 3 disciplinas</div>
+        <p className="kpi-valor num">{painel.total_alunos}</p>
+        <div className="kpi-rodape">
+          {painel.total_inscricoes} inscrições
+          {painel.inscricoes_sem_dados > 0 && `, ${painel.inscricoes_sem_dados} sem dados`}
+        </div>
       </div>
       <div className="kpi">
         <p className="kpi-rotulo">Média geral</p>
         <p className="kpi-valor num">
-          {formatarNota(painel.mediaGeral)}
+          {formatarNota(painel.media_geral)}
           <small>/ 10</small>
         </p>
-        <Variacao valor={variacaoMedia} sufixo="em relação à N1" />
+        <Variacao atual={painel.media_geral} anterior={painel.media_n1} sufixo="em relação à N1" />
       </div>
       <div className="kpi">
         <p className="kpi-rotulo">Frequência média</p>
         <p className="kpi-valor num">
-          {formatarNota(painel.frequenciaGeral)}
+          {formatarNota(painel.frequencia_geral)}
           <small>%</small>
         </p>
-        <Variacao valor={variacaoFrequencia} sufixo="p.p. no último mês" />
+        <Variacao
+          atual={painel.frequencia_geral}
+          anterior={painel.frequencia_n1}
+          sufixo="p.p. em relação à N1"
+        />
       </div>
     </section>
   );
 }
 
-function DistribuicaoMedias({ painel }: { painel: Painel }) {
+export function DistribuicaoMedias({ histograma }: { histograma: Painel['histograma'] }) {
   return (
     <section className="cartao">
       <div className="cartao-topo">
         <div>
           <h2>Distribuição das médias</h2>
-          <p className="cartao-sub">Inscrições por faixa de média final</p>
+          <p className="cartao-sub">Inscrições por faixa de média final (0 a 10)</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={210}>
-        <BarChart data={painel.histograma} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={histograma} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
           <CartesianGrid vertical={false} stroke={GRADE} strokeDasharray="3 4" />
           <XAxis dataKey="faixa" tick={EIXO} tickLine={false} axisLine={false} interval={0} />
           <YAxis allowDecimals={false} tick={EIXO} tickLine={false} axisLine={false} />
-          <Tooltip
-            cursor={{ fill: 'rgb(0 0 0 / 0.04)' }}
-            content={<Dica nomes={{ inscricoes: 'Inscrições' }} />}
-          />
+          <Tooltip cursor={{ fill: 'rgb(0 0 0 / 0.04)' }} content={<Dica nomes={{ inscricoes: 'Inscrições' }} />} />
           <Bar
             dataKey="inscricoes"
             fill="#2c2c2c"
@@ -112,73 +109,80 @@ function DistribuicaoMedias({ painel }: { painel: Painel }) {
           />
         </BarChart>
       </ResponsiveContainer>
-      <div className="legenda">
-        <span>Média mínima para aprovação: 6,00</span>
-      </div>
+      <p className="legenda">Abaixo de 6,00 a inscrição está em risco por média.</p>
     </section>
   );
 }
 
-function FrequenciaSemanal({ painel }: { painel: Painel }) {
-  const mostrarA = painel.frequenciaSemanal.some((s) => s.A !== null);
-  const mostrarB = painel.frequenciaSemanal.some((s) => s.B !== null);
-  const nomes = { A: 'Turma A', B: 'Turma B' };
+export function Dispersao({ painel }: { painel: Painel }) {
+  const pontos = (s: Situacao) =>
+    painel.dispersao
+      .filter((p) => p.situacao === s)
+      .map((p) => ({ ...p, x: Number(p.frequencia), y: Number(p.media) }));
+  const pearson = numero(painel.correlacao_frequencia_media);
 
   return (
     <section className="cartao">
       <div className="cartao-topo">
         <div>
-          <h2>Frequência semanal</h2>
-          <p className="cartao-sub">Presença por semana do período letivo</p>
+          <h2>Frequência × média</h2>
+          <p className="cartao-sub">Cada ponto é uma inscrição (aluno em uma disciplina)</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={210}>
-        <LineChart data={painel.frequenciaSemanal} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-          <CartesianGrid vertical={false} stroke={GRADE} strokeDasharray="3 4" />
-          <XAxis dataKey="semana" tick={EIXO} tickLine={false} axisLine={false} interval={1} />
-          <YAxis
-            domain={[60, 100]}
-            ticks={[60, 70, 80, 90, 100]}
+      <ResponsiveContainer width="100%" height={220}>
+        <ScatterChart margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
+          <CartesianGrid stroke={GRADE} strokeDasharray="3 4" />
+          <XAxis
+            type="number"
+            dataKey="x"
+            name="Frequência"
+            unit="%"
+            domain={[50, 100]}
+            ticks={[50, 60, 70, 80, 90, 100]}
             tick={EIXO}
             tickLine={false}
             axisLine={false}
           />
+          <YAxis type="number" dataKey="y" name="Média" domain={[0, 10]} tick={EIXO} tickLine={false} axisLine={false} />
+          <ZAxis range={[36, 36]} />
+          <ReferenceLine x={75} stroke="#c9c4b6" strokeDasharray="4 4" />
+          <ReferenceLine y={6} stroke="#c9c4b6" strokeDasharray="4 4" />
           <Tooltip
-            cursor={{ stroke: '#c9c4b6' }}
-            content={<Dica nomes={nomes} formatar={(v) => `${formatarDecimal(v)}%`} />}
+            cursor={{ strokeDasharray: '3 3' }}
+            content={({ active, payload }) => {
+              const ponto = payload?.[0]?.payload as (Painel['dispersao'][number] | undefined);
+              if (!active || !ponto) return null;
+              return (
+                <div className="dica">
+                  <strong>{ponto.aluno}</strong>
+                  <div>{ponto.disciplina}</div>
+                  <div className="num">
+                    Média {formatarNota(ponto.media)} · Frequência {formatarPercentual(ponto.frequencia)}
+                  </div>
+                </div>
+              );
+            }}
           />
-          {mostrarA && (
-            <Line type="monotone" dataKey="A" stroke="#8ca573" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-          )}
-          {mostrarB && (
-            <Line type="monotone" dataKey="B" stroke="#e1ba58" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-          )}
-        </LineChart>
+          {SITUACOES_DO_GRAFICO.map((s) => (
+            <Scatter key={s} name={ROTULO_SITUACAO[s]} data={pontos(s)} fill={COR_SITUACAO[s]} fillOpacity={0.85} />
+          ))}
+        </ScatterChart>
       </ResponsiveContainer>
-      <div className="legenda">
-        {mostrarA && (
-          <span>
-            <span className="ponto" style={{ color: '#8ca573' }} /> Turma A
-          </span>
-        )}
-        {mostrarB && (
-          <span>
-            <span className="ponto" style={{ color: '#e1ba58' }} /> Turma B
-          </span>
-        )}
-      </div>
+      <p className="legenda">
+        Linhas tracejadas: 75% e 6,00.
+        {pearson !== null && ` Correlação de Pearson r = ${formatarNota(pearson)} (associação, não causa).`}
+      </p>
     </section>
   );
 }
 
 function AlunosPrioritarios({ painel }: { painel: Painel }) {
-  const prioridade = (s: Status) => ORDEM_STATUS.indexOf(s);
   const alunos = painel.alunos
-    .filter((a) => a.status === 'em_risco' || a.status === 'atencao')
+    .filter((a) => a.situacao === 'em_risco' || a.situacao === 'atencao')
     .sort(
       (a, b) =>
-        prioridade(a.status) - prioridade(b.status) ||
-        (a.media ?? 0) - (b.media ?? 0),
+        ORDEM_SITUACAO.indexOf(a.situacao) - ORDEM_SITUACAO.indexOf(b.situacao) ||
+        (numero(a.media) ?? 0) - (numero(b.media) ?? 0),
     );
 
   return (
@@ -197,13 +201,14 @@ function AlunosPrioritarios({ painel }: { painel: Painel }) {
       <div className="lista">
         {alunos.slice(0, 6).map((aluno) => {
           const critica =
-            aluno.resumos.find((r) => r.status === 'em_risco') ??
-            aluno.resumos.find((r) => r.status === 'atencao')!;
-          const motivo = critica.criterios.length
-            ? critica.criterios
-                .map((c) => descreverCriterio(c, critica.media, critica.frequencia))
-                .join(' e ')
-            : 'próximo do limite mínimo';
+            aluno.inscricoes.find((i) => i.situacao === 'em_risco') ??
+            aluno.inscricoes.find((i) => i.situacao === 'atencao')!;
+          // "POO: média 4,50 (< 6,00) — media_baixa" → "média 4,50 (< 6,00)"
+          const motivo = critica.justificativa
+            .split(': ')
+            .slice(1)
+            .join(': ')
+            .replace(/ — \w+/g, '');
           return (
             <div className="lista-linha" key={aluno.id}>
               <span className="avatar">{iniciais(aluno.nome)}</span>
@@ -212,15 +217,13 @@ function AlunosPrioritarios({ painel }: { painel: Painel }) {
                 <small className="num">{aluno.matricula}</small>
               </div>
               <div className="esconde-mobile">
-                <strong>{critica.disciplina.nome}</strong>
+                <strong>{critica.disciplina_nome}</strong>
                 <small>{motivo}</small>
               </div>
               <span className="direita num esconde-mobile">{formatarNota(aluno.media)}</span>
-              <span className="direita num esconde-mobile">
-                {formatarPercentual(aluno.frequencia)}
-              </span>
+              <span className="direita num esconde-mobile">{formatarPercentual(aluno.frequencia)}</span>
               <span className="direita">
-                <Selo status={aluno.status} />
+                <Selo situacao={aluno.situacao} />
               </span>
             </div>
           );
@@ -232,14 +235,8 @@ function AlunosPrioritarios({ painel }: { painel: Painel }) {
 }
 
 function SituacaoAcademica({ painel }: { painel: Painel }) {
-  const total = painel.alunos.length || 1;
-  const blocos: { status: Status; legenda: string }[] = [
-    { status: 'sem_risco', legenda: 'dos alunos' },
-    { status: 'atencao', legenda: 'dos alunos' },
-    { status: 'indeterminado', legenda: 'dos alunos' },
-    { status: 'em_risco', legenda: 'dos alunos' },
-  ];
-  const corEscura: Record<Status, string> = {
+  const total = painel.total_alunos || 1;
+  const corEscura: Record<Situacao, string> = {
     sem_risco: '#5f7a45',
     atencao: '#b88a1c',
     indeterminado: '#4a50d6',
@@ -250,7 +247,7 @@ function SituacaoAcademica({ painel }: { painel: Painel }) {
     <section className="cartao situacao">
       <div>
         <h2>Situação acadêmica</h2>
-        <p className="cartao-sub">Classificação de risco por disciplina e por aluno</p>
+        <p className="cartao-sub">Risco calculado por disciplina e consolidado por aluno</p>
       </div>
 
       <div className="cartao">
@@ -261,43 +258,32 @@ function SituacaoAcademica({ painel }: { painel: Painel }) {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart
-            data={painel.situacaoPorOferta}
-            margin={{ top: 4, right: 4, bottom: 0, left: -24 }}
-            barGap={3}
-          >
+          <BarChart data={painel.situacao_por_oferta} margin={{ top: 4, right: 4, bottom: 0, left: -24 }} barGap={3}>
             <CartesianGrid vertical={false} stroke={GRADE} strokeDasharray="3 4" />
             <XAxis dataKey="oferta" tick={EIXO} tickLine={false} axisLine={false} interval={0} />
             <YAxis allowDecimals={false} tick={EIXO} tickLine={false} axisLine={false} />
-            <Tooltip
-              cursor={{ fill: 'rgb(0 0 0 / 0.04)' }}
-              content={<Dica nomes={ROTULO_STATUS} />}
-            />
-            {(['sem_risco', 'atencao', 'indeterminado', 'em_risco'] as Status[]).map((s) => (
-              <Bar key={s} dataKey={s} fill={COR_STATUS[s]} barSize={6} radius={[3, 3, 0, 0]} />
+            <Tooltip cursor={{ fill: 'rgb(0 0 0 / 0.04)' }} content={<Dica nomes={ROTULO_SITUACAO} />} />
+            {SITUACOES_DO_GRAFICO.map((s) => (
+              <Bar key={s} dataKey={s} fill={COR_SITUACAO[s]} barSize={6} radius={[3, 3, 0, 0]} />
             ))}
           </BarChart>
         </ResponsiveContainer>
         <div className="legenda">
-          {(['sem_risco', 'atencao', 'indeterminado', 'em_risco'] as Status[]).map((s) => (
+          {SITUACOES_DO_GRAFICO.map((s) => (
             <span key={s}>
-              <span className="ponto" style={{ color: COR_STATUS[s] }} /> {ROTULO_STATUS[s]}
+              <span className="ponto" style={{ color: COR_SITUACAO[s] }} /> {ROTULO_SITUACAO[s]}
             </span>
           ))}
         </div>
       </div>
 
       <div className="blocos">
-        {blocos.map(({ status, legenda }) => (
-          <div className={`bloco ${status}`} key={status}>
-            <h3>{ROTULO_STATUS[status]}</h3>
-            <Anel
-              percentual={(painel.contagem[status] / total) * 100}
-              cor={corEscura[status]}
-              legenda={legenda}
-            />
+        {SITUACOES_DO_GRAFICO.map((s) => (
+          <div className={`bloco ${s}`} key={s}>
+            <h3>{ROTULO_SITUACAO[s]}</h3>
+            <Anel percentual={(painel.contagem[s] / total) * 100} cor={corEscura[s]} legenda="dos alunos" />
             <p className="bloco-rodape num">
-              {painel.contagem[status]} <span>{painel.contagem[status] === 1 ? 'aluno' : 'alunos'}</span>
+              {painel.contagem[s]} <span>{painel.contagem[s] === 1 ? 'aluno' : 'alunos'}</span>
             </p>
           </div>
         ))}
@@ -312,8 +298,8 @@ export function VisaoGeral({ painel }: { painel: Painel }) {
       <div className="coluna">
         <Indicadores painel={painel} />
         <div className="graficos">
-          <DistribuicaoMedias painel={painel} />
-          <FrequenciaSemanal painel={painel} />
+          <DistribuicaoMedias histograma={painel.histograma} />
+          <Dispersao painel={painel} />
         </div>
         <AlunosPrioritarios painel={painel} />
       </div>

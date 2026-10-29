@@ -27,7 +27,7 @@ def autenticar(db: Session, email: str, senha: str) -> Token | None:
     if not senha_confere(senha, usuario.senha_hash) or not usuario.ativo:
         return None
     return Token(
-        access_token=criar_token(usuario.id, usuario.role),
+        access_token=criar_token(usuario.id, usuario.role, usuario.nome_usuario),
         expira_em_minutos=get_settings().jwt_expira_minutos,
         usuario=UsuarioResumo.model_validate(usuario),
     )

@@ -1,20 +1,18 @@
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import type { AlunoPainel, Painel, Situacao } from '../api/tipos';
 import { DetalheAluno } from '../componentes/DetalheAluno';
 import { Selo } from '../componentes/Selo';
-import type { AlunoConsolidado } from '../dados/calculos';
 import {
   formatarNota,
   formatarPercentual,
   iniciais,
-  ORDEM_STATUS,
-  ROTULO_STATUS,
+  ORDEM_SITUACAO,
+  ROTULO_SITUACAO,
 } from '../dados/formato';
-import type { Painel } from '../dados/painel';
-import type { Status } from '../dados/tipos';
 
-type FiltroStatus = 'todos' | Status;
+type FiltroSituacao = 'todos' | Situacao;
 
 function normalizar(texto: string): string {
   return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -22,24 +20,24 @@ function normalizar(texto: string): string {
 
 export function Alunos({ painel }: { painel: Painel }) {
   const [busca, setBusca] = useState('');
-  const [status, setStatus] = useState<FiltroStatus>('todos');
-  const [selecionado, setSelecionado] = useState<AlunoConsolidado | null>(null);
+  const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
+  const [selecionado, setSelecionado] = useState<AlunoPainel | null>(null);
 
   const alunos = useMemo(() => {
     const termo = normalizar(busca.trim());
     return painel.alunos
-      .filter((a) => status === 'todos' || a.status === status)
+      .filter((a) => situacao === 'todos' || a.situacao === situacao)
       .filter((a) => !termo || normalizar(`${a.nome} ${a.matricula}`).includes(termo))
       .sort(
         (a, b) =>
-          ORDEM_STATUS.indexOf(a.status) - ORDEM_STATUS.indexOf(b.status) ||
+          ORDEM_SITUACAO.indexOf(a.situacao) - ORDEM_SITUACAO.indexOf(b.situacao) ||
           a.nome.localeCompare(b.nome, 'pt-BR'),
       );
-  }, [painel, busca, status]);
+  }, [painel, busca, situacao]);
 
-  const opcoes: { valor: FiltroStatus; rotulo: string; total: number }[] = [
-    { valor: 'todos', rotulo: 'Todos', total: painel.alunos.length },
-    ...ORDEM_STATUS.map((s) => ({ valor: s, rotulo: ROTULO_STATUS[s], total: painel.contagem[s] })),
+  const opcoes: { valor: FiltroSituacao; rotulo: string; total: number }[] = [
+    { valor: 'todos', rotulo: 'Todos', total: painel.total_alunos },
+    ...ORDEM_SITUACAO.map((s) => ({ valor: s, rotulo: ROTULO_SITUACAO[s], total: painel.contagem[s] })),
   ];
 
   return (
@@ -60,8 +58,8 @@ export function Alunos({ painel }: { painel: Painel }) {
             <button
               key={o.valor}
               type="button"
-              aria-pressed={status === o.valor}
-              onClick={() => setStatus(o.valor)}
+              aria-pressed={situacao === o.valor}
+              onClick={() => setSituacao(o.valor)}
             >
               {o.rotulo} <span className="contagem num">{o.total}</span>
             </button>
@@ -83,7 +81,7 @@ export function Alunos({ painel }: { painel: Painel }) {
           </thead>
           <tbody>
             {alunos.map((aluno) => {
-              const emRisco = aluno.resumos.filter((r) => r.status === 'em_risco');
+              const emRisco = aluno.inscricoes.filter((i) => i.situacao === 'em_risco');
               return (
                 <tr key={aluno.id}>
                   <td>
@@ -95,12 +93,12 @@ export function Alunos({ painel }: { painel: Painel }) {
                       </span>
                     </button>
                   </td>
-                  <td>Turma {aluno.turma}</td>
+                  <td>{aluno.turma_nome}</td>
                   <td className="direita num">{formatarNota(aluno.media)}</td>
                   <td className="direita num">{formatarPercentual(aluno.frequencia)}</td>
-                  <td>{emRisco.length ? emRisco.map((r) => r.disciplina.sigla).join(', ') : '—'}</td>
+                  <td>{emRisco.length ? emRisco.map((i) => i.disciplina_nome).join(', ') : '—'}</td>
                   <td>
-                    <Selo status={aluno.status} />
+                    <Selo situacao={aluno.situacao} />
                   </td>
                 </tr>
               );
@@ -110,13 +108,7 @@ export function Alunos({ painel }: { painel: Painel }) {
         {alunos.length === 0 && <p className="vazio">Nenhum aluno encontrado com esses filtros.</p>}
       </div>
 
-      {selecionado && (
-        <DetalheAluno
-          aluno={selecionado}
-          periodo={painel.periodoLetivo}
-          aoFechar={() => setSelecionado(null)}
-        />
-      )}
+      {selecionado && <DetalheAluno aluno={selecionado} aoFechar={() => setSelecionado(null)} />}
     </section>
   );
 }

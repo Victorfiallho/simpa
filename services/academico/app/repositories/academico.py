@@ -1,7 +1,7 @@
 """Repositórios de cada entidade do serviço acadêmico."""
 
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models import Aluno, Avaliacao, Disciplina, Frequencia, Inscricao, Turma
 from app.repositories.base import Repositorio
@@ -45,13 +45,40 @@ class InscricaoRepositorio(Repositorio[Inscricao]):
     nome = "Inscrição"
     campos_ordenaveis = frozenset({"id", "criado_em"})
 
+    _DETALHES = (
+        joinedload(Inscricao.aluno),
+        selectinload(Inscricao.avaliacoes),
+        selectinload(Inscricao.frequencias),
+    )
+
     def obter_detalhada(self, id_: int) -> Inscricao | None:
+        consulta = select(Inscricao).options(*self._DETALHES).where(Inscricao.id == id_)
+        return self.db.scalar(consulta)
+
+    def listar_detalhadas(
+        self,
+        *,
+        turma_id: int | None = None,
+        disciplina_id: int | None = None,
+        aluno_id: int | None = None,
+        periodo_letivo: str | None = None,
+    ) -> list[Inscricao]:
+        """Inscrições com aluno, disciplina, notas e frequências, para o analítico (D14)."""
         consulta = (
             select(Inscricao)
-            .options(selectinload(Inscricao.avaliacoes), selectinload(Inscricao.frequencias))
-            .where(Inscricao.id == id_)
+            .join(Inscricao.disciplina)
+            .options(*self._DETALHES)
+            .order_by(Inscricao.id)
         )
-        return self.db.scalar(consulta)
+        if turma_id is not None:
+            consulta = consulta.where(Disciplina.turma_id == turma_id)
+        if disciplina_id is not None:
+            consulta = consulta.where(Inscricao.disciplina_id == disciplina_id)
+        if aluno_id is not None:
+            consulta = consulta.where(Inscricao.aluno_id == aluno_id)
+        if periodo_letivo is not None:
+            consulta = consulta.where(Disciplina.periodo_letivo == periodo_letivo)
+        return list(self.db.scalars(consulta).unique())
 
 
 class AvaliacaoRepositorio(Repositorio[Avaliacao]):

@@ -30,7 +30,7 @@ flowchart LR
 | `frontend` | Interface web em React (D12) | RF04, RF06, RNF11, RNF12 |
 | `auth` | Login, emissão de JWT (RS256), usuários e perfis | RF09, D03, D15 |
 | `academico` | Turmas, disciplinas, alunos, inscrições, notas e frequência | RF01–RF04, RF08, D10 |
-| `analitico` | Indicadores, risco, gráficos e relatórios | RF05–RF07, RF11 |
+| `analitico` | Painel, indicadores, histórico de risco e relatórios (CSV, XLSX, PDF) | RF05–RF07, RF11 |
 | `analitico-worker` | Consome os eventos do acadêmico e recalcula o risco | RF03, D11, D14 |
 | `postgres` | PostgreSQL 17 com `auth_db`, `academico_db` e `analitico_db` | RNF08, D16 |
 | `rabbitmq` | Fila de eventos entre os serviços | D14 |
@@ -45,7 +45,7 @@ flowchart LR
 | Mensageria | RabbitMQ (pika) |
 | Gateway | nginx |
 | Autenticação | JWT RS256 (PyJWT) |
-| Análise | pandas / numpy / matplotlib (entram na Fase 2) |
+| Análise | `Decimal` (estatística e risco), openpyxl e reportlab (relatórios) |
 | Qualidade | pytest + ruff |
 | Ambiente | Docker + Docker Compose |
 
@@ -67,7 +67,11 @@ docker compose up --build -d
 docker compose exec academico python -m app.comandos.seed
 ```
 
-O seed pode ser rodado mais de uma vez: se os dados já existirem, ele não faz nada.
+O seed pode ser rodado mais de uma vez: se os dados já existirem, ele não faz nada. O risco de cada inscrição é calculado pelo worker do analítico à medida que as notas chegam. Para recalcular tudo de uma vez (por exemplo, depois de mudar uma regra):
+
+```bash
+docker compose exec analitico python -m app.comandos.recalcular
+```
 
 ### Usuários de demonstração
 
@@ -85,7 +89,7 @@ Com tudo de pé:
 
 | Endereço | O que é |
 |---|---|
-| http://localhost | Sistema (Visão geral e Alunos, por enquanto com dados de demonstração) |
+| http://localhost | Sistema: entre com um dos usuários de demonstração abaixo |
 | http://localhost/api/auth/docs | Swagger do auth |
 | http://localhost/api/academico/docs | Swagger do acadêmico |
 | http://localhost/api/analitico/docs | Swagger do analítico |
@@ -167,6 +171,7 @@ docs/                        SRS, DER, decisões, UML, códigos de erro, roteiro
 - [Diagramas UML (casos de uso, classes e camadas)](docs/uml.md)
 - [Códigos de erro da API](docs/codigos-erro.md)
 - [Roteiro de demonstração do Marco 1](docs/demonstracao-marco1.md)
+- [Roteiro de demonstração do Marco 2](docs/demonstracao-marco2.md)
 - [Roadmap](ROADMAP.md)
 
 ## Equipe

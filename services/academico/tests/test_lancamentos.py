@@ -199,6 +199,19 @@ def test_rota_interna_entrega_a_inscricao_completa(cliente, inscricao):
     assert len(corpo["avaliacoes"]) == 1
 
 
+def test_rota_interna_lista_inscricoes_por_turma(cliente, inscricao, turma):
+    nota(cliente, inscricao)
+
+    da_turma = cliente.get("/internal/inscricoes", params={"turma_id": turma["id"]}).json()
+    de_outra = cliente.get("/internal/inscricoes", params={"turma_id": 999}).json()
+
+    item = da_turma["dados"][0]
+    assert item["aluno"]["matricula"] == "20260001"
+    assert item["disciplina"]["turma"]["codigo"] == "IA2-N"
+    assert item["avaliacoes"][0]["nota"] == "7.50"
+    assert de_outra["dados"] == []
+
+
 def test_banco_bloqueia_exclusao_fisica_com_historico(cliente, inscricao):
     """ON DELETE RESTRICT: o banco não deixa apagar um aluno que tem inscrições."""
     db = next(app.dependency_overrides[get_db]())

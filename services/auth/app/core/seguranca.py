@@ -54,11 +54,12 @@ def jwks() -> dict[str, list[dict[str, Any]]]:
     return {"keys": [jwk]}
 
 
-def criar_token(usuario_id: int, role: str) -> str:
-    """Token com o id do usuário (sub), o perfil (role, D03) e a expiração."""
+def criar_token(usuario_id: int, role: str, nome: str | None = None) -> str:
+    """Token com o id do usuário (sub), o nome, o perfil (role, D03) e a expiração."""
     agora = datetime.now(UTC)
     payload = {
         "sub": str(usuario_id),
+        "nome": nome,
         "role": role,
         "iss": EMISSOR,
         "iat": agora,

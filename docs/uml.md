@@ -50,10 +50,12 @@ flowchart LR
 | Cadastrar turmas, disciplinas e alunos | RF01, RF02 | Pronto |
 | Inscrever aluno em disciplina | RF03, D01 | Pronto |
 | Lançar notas e frequência | RF03, D02 | Pronto |
-| Consultar aluno | RF04 | Pronto (sem indicadores, que vêm na Fase 2) |
+| Consultar aluno | RF04 | Pronto, com diagnóstico e histórico de risco na interface |
 | Encerrar e reabrir | D10 | Pronto (reabrir só o admin) |
-| Indicadores, risco e relatórios | RF05–RF07, RF11 | Fase 2 |
-| Recalcular risco da inscrição | RF03, D11 | Evento chega ao worker; cálculo na Fase 2 |
+| Consultar indicadores | RF05 | Pronto (`/indicadores/...` e tela de Análises) |
+| Consultar risco e justificativa | RF07 | Pronto (`/painel` e `/riscos/...`) |
+| Exportar relatórios | RF11 | Pronto (CSV, XLSX e PDF) |
+| Recalcular risco da inscrição | RF03, D11 | Pronto (worker a cada evento) |
 
 As restrições "professor só nas próprias disciplinas" e "só admin gerencia usuários" (D03) entram na Fase 3.
 
