@@ -27,6 +27,7 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | 403 | `ACESSO_NEGADO` | Usuário autenticado sem permissão para a ação |
 | 404 | `NAO_ENCONTRADO` | O recurso do caminho da URL não existe |
 | 405 | `METODO_NAO_PERMITIDO` | Método HTTP não aceito na rota |
+| 429 | `MUITAS_TENTATIVAS` | Login bloqueado por erros seguidos no mesmo e-mail (5 erros, 60 s; cabeçalho `Retry-After`) | RF09 |
 | 409 | `CONFLITO` | O banco recusou o registro por uma regra de unicidade ou integridade não tratada antes |
 | 422 | `VALIDACAO` | Corpo, query ou caminho fora do formato; veja `erro.campos` |
 | 500 | `ERRO_INTERNO` | Erro inesperado. A resposta nunca traz stack trace; o detalhe fica no log, com o `X-Request-ID` |
