@@ -5,6 +5,7 @@ from app.schemas.avaliacao import AvaliacaoLeitura
 from app.schemas.base import Entrada, Saida
 from app.schemas.disciplina import DisciplinaResumo
 from app.schemas.frequencia import FrequenciaLeitura
+from app.schemas.registro_semanal import RegistroSemanalLeitura
 
 StatusInscricao = Literal["ativa", "trancada", "concluida", "cancelada"]
 
@@ -66,3 +67,4 @@ class InscricaoInterna(Saida):
     disciplina: DisciplinaInterna
     avaliacoes: list[AvaliacaoLeitura]
     frequencias: list[FrequenciaLeitura]
+    semanas: list[RegistroSemanalLeitura] = []
