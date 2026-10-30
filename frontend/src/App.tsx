@@ -7,8 +7,12 @@ import { useDados } from './api/useDados';
 import { BarraLateral } from './componentes/BarraLateral';
 import { Cabecalho, type Filtros } from './componentes/Cabecalho';
 import { Conteudo } from './componentes/Conteudo';
+import { Alertas } from './paginas/Alertas';
 import { Alunos } from './paginas/Alunos';
 import { Analises } from './paginas/Analises';
+import { Auditoria } from './paginas/Auditoria';
+import { Cenarios } from './paginas/Cenarios';
+import { Copiloto } from './paginas/Copiloto';
 import { Login } from './paginas/Login';
 import { Relatorios } from './paginas/Relatorios';
 import { VisaoGeral } from './paginas/VisaoGeral';
@@ -80,6 +84,22 @@ function Aplicacao() {
               <Analises turmaId={filtros.turmaId} periodo={filtros.periodo ?? periodoMaisRecente} />,
             )}
           />
+          <Route
+            path="/alertas"
+            element={pagina(
+              'Alertas',
+              <Alertas turmaId={filtros.turmaId} periodo={filtros.periodo} />,
+            )}
+          />
+          <Route
+            path="/cenarios"
+            element={pagina(
+              'Cenários',
+              <Cenarios turmaId={filtros.turmaId} periodo={filtros.periodo} />,
+            )}
+          />
+          <Route path="/copiloto" element={pagina('Copiloto', <Copiloto />)} />
+          <Route path="/auditoria" element={pagina('Auditoria', <Auditoria />)} />
           <Route
             path="/relatorios"
             element={pagina(

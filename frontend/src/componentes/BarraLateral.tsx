@@ -1,4 +1,14 @@
-import { ChartColumn, FileText, LayoutDashboard, LogOut, Users } from 'lucide-react';
+import {
+  BellRing,
+  Bot,
+  ChartColumn,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  ScrollText,
+  SlidersHorizontal,
+  Users,
+} from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 import { iniciais } from '../dados/formato';
@@ -11,6 +21,14 @@ const ITENS = [
   { para: '/relatorios', rotulo: 'Relatórios', Icone: FileText },
 ];
 
+// Só para admin e coordenador (D03): alertas, simulações, copiloto e trilha de auditoria.
+const ITENS_DA_GESTAO = [
+  { para: '/alertas', rotulo: 'Alertas', Icone: BellRing },
+  { para: '/cenarios', rotulo: 'Cenários', Icone: SlidersHorizontal },
+  { para: '/copiloto', rotulo: 'Copiloto', Icone: Bot },
+  { para: '/auditoria', rotulo: 'Auditoria', Icone: ScrollText },
+];
+
 const PERFIL = { admin: 'Administração', coordenador: 'Coordenação', professor: 'Professor' };
 
 /** Símbolo da logo (as três faixas), para fundos escuros e espaços pequenos. */
@@ -20,6 +38,8 @@ function Simbolo() {
 
 export function BarraLateral() {
   const { usuario, sair } = useSessao();
+  const gestao = usuario?.role === 'admin' || usuario?.role === 'coordenador';
+  const itens = gestao ? [...ITENS, ...ITENS_DA_GESTAO] : ITENS;
 
   return (
     <aside className="barra">
@@ -29,7 +49,7 @@ export function BarraLateral() {
       </NavLink>
 
       <nav aria-label="Menu principal">
-        {ITENS.map(({ para, rotulo, Icone }) => (
+        {itens.map(({ para, rotulo, Icone }) => (
           <NavLink key={para} to={para} end={para === '/'}>
             <span className="icone">
               <Icone size={19} strokeWidth={1.8} />

@@ -176,3 +176,116 @@ export interface ResultadoRisco {
   justificativa: string;
   calculado_em: string;
 }
+
+// ---------- Alertas e acompanhamento (RF07) ----------
+
+export type TipoAlerta = 'queda' | 'frequencia' | 'abandono';
+export type NivelAlerta = 'atencao' | 'alto';
+export type EstadoAtendimento = 'pendente' | 'acomp' | 'encerrado';
+export type TipoAcompanhamento = 'contato' | 'orientacao' | 'monitoria';
+
+export interface Alerta {
+  aluno_id: number;
+  aluno_nome: string;
+  matricula: string;
+  disciplina_id: number;
+  disciplina_nome: string;
+  professor_id: number | null;
+  tipo: TipoAlerta;
+  nivel: NivelAlerta;
+  titulo: string;
+  detalhe: string;
+  acao_sugerida: string;
+  estado: EstadoAtendimento;
+  ultimo_contato: string;
+}
+
+export interface ResumoTipoAlerta {
+  tipo: TipoAlerta;
+  total: number;
+  graves: number;
+  pendentes: number;
+}
+
+export interface ListaAlertas {
+  resumo: ResumoTipoAlerta[];
+  alertas: Alerta[];
+}
+
+export interface Acompanhamento {
+  id: number;
+  aluno_id: number;
+  disciplina_id: number | null;
+  tipo: TipoAcompanhamento;
+  data: string;
+  responsavel: string;
+  observacao: string;
+  revisao: string | null;
+  revisao_feita: boolean;
+  revisao_vencida: boolean;
+}
+
+// ---------- Cenários (RF07) ----------
+
+export type BaseCenario = 'n1' | 'atual';
+
+export interface MargemCenario {
+  inscricao_id: number;
+  aluno_id: number;
+  aluno_nome: string;
+  matricula: string;
+  disciplina_id: number;
+  disciplina_nome: string;
+  modo: 'sem_dados' | 'n2' | 'aprovado' | 'exame' | 'rep_nota';
+  n1: Decimal;
+  n2: Decimal;
+  media: Decimal;
+  frequencia: Decimal;
+  necessario: Decimal;
+  media_maxima: Decimal;
+  viabilidade: string;
+  gravidade: number;
+  meta: string;
+  hipotese_media: Decimal | null;
+  hipotese_resultado: string | null;
+}
+
+export interface ProjecaoCenario {
+  regras: { aprovacao: string; recuperacao: string; final: string };
+  base: BaseCenario;
+  inscricoes_projetadas: number;
+  contagem: { direta: number; recuperacao: number; rep_nota: number; rep_freq: number; sem_dados: number };
+  retencao_percentual: Decimal;
+  alunos: { aprovados_em_tudo: number; com_recuperacao: number; com_reprovacao: number };
+  por_oferta: { oferta: string; direta: number; recuperacao: number; rep_nota: number; rep_freq: number }[];
+  variacao_por_disciplina: { disciplina_id: number; disciplina_nome: string; variacao: string }[];
+  total_metas: number;
+  metas: MargemCenario[];
+}
+
+// ---------- Auditoria (RF12) ----------
+
+export interface RegistroAuditoria {
+  id: number;
+  correlation_id: string;
+  usuario_id: number | null;
+  rota: string;
+  metodo_http: string;
+  status_http: number;
+  ip_origem: string;
+  tempo_resposta_ms: number;
+  timestamp: string;
+}
+
+// ---------- Copiloto (RF07) ----------
+
+export interface RespostaCopiloto {
+  intencao: string;
+  recorte: string;
+  texto: string;
+  itens: { aluno_id: number; aluno_nome: string; matricula: string; detalhe: string }[];
+  total_itens: number;
+  secoes: { titulo: string; linhas: string[] }[];
+  texto_completo: string | null;
+  sugestoes: string[];
+}
