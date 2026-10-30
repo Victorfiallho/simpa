@@ -65,6 +65,14 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 
 Para criar um código novo: crie a exceção com `codigo="..."` no service, acrescente uma linha aqui e um teste que confira o código.
 
+## Perfil aluno e pedidos de apoio (analítico)
+
+| HTTP | Código | Quando acontece | Origem |
+|---|---|---|---|
+| 409 | `LIMITE_DE_SOLICITACOES` | O aluno já tem 5 pedidos de apoio em aberto | RF07 |
+| 422 | `MOTIVO_INVALIDO` | Motivo fora da lista de motivos do pedido de apoio | RF07 |
+| 422 | `DISCIPLINA_NAO_INSCRITA` | Disciplina em que o aluno não está inscrito | RF07 |
+
 ## Copiloto (analítico)
 
 O copiloto não tem códigos próprios: pergunta com menos de 2 ou mais de 300 caracteres, ou com campos extras, responde `422 VALIDACAO`. Uma pergunta que ele não entende **não é erro**: volta `200` com `intencao: "ajuda"` e as sugestões.

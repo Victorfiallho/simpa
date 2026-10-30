@@ -4,6 +4,13 @@ Todos os models precisam ser importados aqui: o Alembic depende disso para gerar
 """
 
 from app.models.alerta import Acompanhamento, AtendimentoAlerta
+from app.models.apoio import HistoricoApoio, SolicitacaoApoio
 from app.models.resultado_risco import ResultadoRisco
 
-__all__ = ["Acompanhamento", "AtendimentoAlerta", "ResultadoRisco"]
+__all__ = [
+    "Acompanhamento",
+    "AtendimentoAlerta",
+    "HistoricoApoio",
+    "ResultadoRisco",
+    "SolicitacaoApoio",
+]
