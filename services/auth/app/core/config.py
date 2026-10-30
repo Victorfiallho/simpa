@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     login_max_tentativas: int = 5
     login_bloqueio_segundos: int = 60
 
+    # Fila de auditoria: os serviços publicam `log.requisicao` e o worker grava no banco (RF12).
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+
     # Em desenvolvimento, cria um usuário de cada perfil na subida (docker-compose.override.yml).
     usuarios_demo: bool = False
     demo_senha: str | None = None
