@@ -60,3 +60,11 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | 409 | `USUARIO_DUPLICADO` | Nome de usuário ou e-mail já cadastrado | RF09 |
 
 Para criar um código novo: crie a exceção com `codigo="..."` no service, acrescente uma linha aqui e um teste que confira o código.
+
+## Perfil do usuário (auth)
+
+| HTTP | Código | Quando acontece | Origem |
+|---|---|---|---|
+| 422 | `FOTO_VAZIA` | `PUT /me/foto` sem corpo | RF09 |
+| 422 | `FOTO_GRANDE` | Foto acima de 1 MB | RF09 |
+| 422 | `FOTO_INVALIDA` | O conteúdo não é JPG, PNG nem WebP (o tipo é conferido nos bytes, não no cabeçalho) | RF09, RNF04 |

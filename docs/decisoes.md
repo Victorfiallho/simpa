@@ -102,6 +102,7 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 | Serviço | Responsabilidade | Requisitos | Tabelas |
 |---|---|---|---|
 | auth | login, emissão de token, usuários e perfis | RF09, D03 | `Usuario`, `LogRequisicao` |
+| auth | perfil do usuário (`GET/PATCH /me`, foto em `/me/foto`) | RF09 | `PerfilUsuario` |
 | acadêmico | turmas, disciplinas, alunos, inscrições, notas e frequência | RF01–RF04, RF08 | `Turma`, `Disciplina`, `Aluno`, `Inscricao`, `Avaliacao`, `Frequencia` |
 | analítico | indicadores, risco, gráficos e relatórios | RF05–RF07, RF11 | `ResultadoRisco` |
 

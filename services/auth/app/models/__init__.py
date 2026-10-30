@@ -4,6 +4,7 @@ Todos os models precisam ser importados aqui: o Alembic depende disso para gerar
 """
 
 from app.models.log_requisicao import LogRequisicao
+from app.models.perfil import PerfilUsuario
 from app.models.usuario import Usuario
 
-__all__ = ["LogRequisicao", "Usuario"]
+__all__ = ["LogRequisicao", "PerfilUsuario", "Usuario"]
