@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 
-TIPOS_ALERTA = ("queda", "frequencia")
+TIPOS_ALERTA = ("queda", "frequencia", "abandono")
 ESTADOS_ATENDIMENTO = ("pendente", "acomp", "encerrado")
 TIPOS_ACOMPANHAMENTO = ("contato", "orientacao", "monitoria")
 NIVEIS = ("atencao", "alto")

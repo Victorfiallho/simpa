@@ -3,6 +3,7 @@
 O analítico não tem cópia das notas: busca sempre os valores atuais no acadêmico.
 """
 
+from datetime import date
 from decimal import Decimal
 
 import httpx
@@ -51,6 +52,15 @@ class Frequencia(BaseModel):
     faltas: int
 
 
+class Semana(BaseModel):
+    """Presença e atividades de uma semana (a segunda-feira identifica a semana)."""
+
+    semana_inicio: date
+    presente: bool
+    atividades_previstas: int
+    atividades_entregues: int
+
+
 class Inscricao(BaseModel):
     id: int
     status: str
@@ -58,6 +68,7 @@ class Inscricao(BaseModel):
     disciplina: Disciplina
     avaliacoes: list[Avaliacao]
     frequencias: list[Frequencia]
+    semanas: list[Semana] = []
 
 
 def _buscar(caminho: str, params: dict | None = None) -> httpx.Response:

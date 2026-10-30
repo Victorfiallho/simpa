@@ -8,17 +8,19 @@ from sqlalchemy.orm import Session
 from app.core.excecoes import Conflito, RegraDeNegocioViolada
 from app.core.seguranca import UsuarioAtual
 from app.events import publicador
-from app.models import Avaliacao, Frequencia, Inscricao
+from app.models import Avaliacao, Frequencia, Inscricao, RegistroSemanal
 from app.repositories.academico import (
     AlunoRepositorio,
     AvaliacaoRepositorio,
     DisciplinaRepositorio,
     FrequenciaRepositorio,
     InscricaoRepositorio,
+    RegistroSemanalRepositorio,
 )
 from app.schemas.avaliacao import AvaliacaoAtualizacao, AvaliacaoCriacao
 from app.schemas.frequencia import FrequenciaAtualizacao, FrequenciaCriacao
 from app.schemas.inscricao import InscricaoAtualizacao, InscricaoCriacao
+from app.schemas.registro_semanal import RegistroSemanalAtualizacao, RegistroSemanalCriacao
 from app.services.comum import (
     garantir_disciplina_aberta,
     garantir_lancamento_permitido,
@@ -181,3 +183,63 @@ def remover_frequencia(db: Session, frequencia_id: int, usuario: UsuarioAtual) -
     repositorio.remover(frequencia)
     db.commit()
     _avisar("frequencia.alterada", inscricao_id)
+
+
+# ---------- Registro semanal (presença e atividades) ----------
+
+
+def _semana_livre(
+    repositorio: RegistroSemanalRepositorio,
+    inscricao_id: int,
+    semana_inicio,
+) -> None:
+    if repositorio.existe(
+        RegistroSemanal.inscricao_id == inscricao_id,
+        RegistroSemanal.semana_inicio == semana_inicio,
+    ):
+        raise Conflito(
+            f"Já existe registro da semana de {semana_inicio:%d/%m/%Y} para esta inscrição.",
+            codigo="SEMANA_DUPLICADA",
+        )
+
+
+def criar_semana(
+    db: Session, dados: RegistroSemanalCriacao, usuario: UsuarioAtual
+) -> RegistroSemanal:
+    repositorio = RegistroSemanalRepositorio(db)
+    inscricao = referencia(InscricaoRepositorio(db), dados.inscricao_id)
+    garantir_inscricao_propria(inscricao, usuario)
+    garantir_lancamento_permitido(inscricao)
+    _semana_livre(repositorio, inscricao.id, dados.semana_inicio)
+    registro = repositorio.adicionar(RegistroSemanal(**dados.model_dump()))
+    db.commit()
+    return registro
+
+
+def atualizar_semana(
+    db: Session, registro_id: int, dados: RegistroSemanalAtualizacao, usuario: UsuarioAtual
+) -> RegistroSemanal:
+    repositorio = RegistroSemanalRepositorio(db)
+    registro = repositorio.obter_ou_falhar(registro_id)
+    garantir_inscricao_propria(registro.inscricao, usuario)
+    garantir_lancamento_permitido(registro.inscricao)
+    alteracoes = mudancas(dados)
+    previstas = alteracoes.get("atividades_previstas", registro.atividades_previstas)
+    entregues = alteracoes.get("atividades_entregues", registro.atividades_entregues)
+    if entregues > previstas:
+        raise RegraDeNegocioViolada(
+            "As atividades entregues não podem passar das previstas.",
+            codigo="ENTREGAS_INVALIDAS",
+        )
+    repositorio.atualizar(registro, alteracoes)
+    db.commit()
+    return registro
+
+
+def remover_semana(db: Session, registro_id: int, usuario: UsuarioAtual) -> None:
+    repositorio = RegistroSemanalRepositorio(db)
+    registro = repositorio.obter_ou_falhar(registro_id)
+    garantir_inscricao_propria(registro.inscricao, usuario)
+    garantir_lancamento_permitido(registro.inscricao)
+    repositorio.remover(registro)
+    db.commit()
