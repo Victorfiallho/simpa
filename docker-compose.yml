@@ -51,15 +51,31 @@ services:
   auth:
     <<: *servico-python
     build: ./services/auth
-    environment:
+    environment: &auth-env
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth_db
       ROOT_PATH: /api/auth
       JWT_EXPIRA_MINUTOS: ${JWT_EXPIRA_MINUTOS:-60}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       DEMO_SENHA: ${DEMO_SENHA:-}
     volumes:
       - auth-chaves:/servico/chaves
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Mesmo código do auth, mas rodando o consumidor que grava a auditoria (RF12).
+  auth-worker:
+    build: ./services/auth
+    command: ["python", "-m", "app.events.consumidor"]
+    restart: unless-stopped
+    environment: *auth-env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      # Só começa depois que a API aplicou as migrações (a tabela log_requisicao).
+      auth:
         condition: service_healthy
 
   academico:

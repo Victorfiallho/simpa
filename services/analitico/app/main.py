@@ -2,7 +2,7 @@
 
 from fastapi import Depends, FastAPI
 
-from app.api import copiloto, rotas
+from app.api import alertas, cenarios, copiloto, rotas
 from app.core.config import get_settings
 from app.core.excecoes import registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
@@ -26,6 +26,9 @@ for roteador in (
     rotas.indicadores,
     rotas.riscos,
     rotas.relatorio,
+    alertas.alerta,
+    alertas.acompanhamentos,
+    cenarios.cenario,
     copiloto.router,
 ):
     app.include_router(roteador, dependencies=[Depends(usuario_atual)])

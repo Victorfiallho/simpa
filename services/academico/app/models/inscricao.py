@@ -36,3 +36,6 @@ class Inscricao(Base):
     frequencias: Mapped[list["Frequencia"]] = relationship(  # noqa: F821
         back_populates="inscricao", order_by="Frequencia.id"
     )
+    semanas: Mapped[list["RegistroSemanal"]] = relationship(  # noqa: F821
+        back_populates="inscricao", order_by="RegistroSemanal.semana_inicio"
+    )
