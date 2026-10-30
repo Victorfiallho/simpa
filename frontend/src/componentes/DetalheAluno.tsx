@@ -160,6 +160,26 @@ export function DetalheAluno({ aluno, aoFechar }: Props) {
           ))}
         </div>
 
+        {aluno.recomendacoes.length > 0 && (
+          <section className="cartao" style={{ marginTop: 16 }}>
+            <h2>Recomendações</h2>
+            <p className="cartao-sub">Sugestões de acompanhamento, da mais para a menos urgente</p>
+            <ul className="recomendacoes">
+              {aluno.recomendacoes.map((r) => (
+                <li key={r.acao}>
+                  <span className={`prioridade ${r.prioridade}`}>
+                    {r.prioridade === 'alta' ? 'Alta' : r.prioridade === 'media' ? 'Média' : 'Baixa'}
+                  </span>
+                  <div>
+                    <strong>{r.acao}</strong>
+                    <small>{r.motivo}</small>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="cartao" style={{ marginTop: 16 }}>
           <h2>Histórico de risco</h2>
           <p className="cartao-sub">Cada mudança de situação, da mais recente para a mais antiga</p>

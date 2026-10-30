@@ -7,7 +7,7 @@ Interface web do SIMPA em **React + Vite + TypeScript** ([D12](../docs/decisoes.
 | Login | — | Entrada com e-mail e senha | `POST /api/auth/login` |
 | Visão geral | `/` | Indicadores, distribuição das médias, frequência × média, alunos prioritários, situação por disciplina | `GET /api/analitico/painel` |
 | Alunos | `/alunos` | Lista com busca e filtro; gaveta com notas, justificativas e histórico de risco | `/painel` e `/riscos/inscricoes/{id}/historico` |
-| Análises | `/analises` | Estatística descritiva, ranking, evolução N1 → acumulado, janela parcial | `GET /api/analitico/indicadores/...` |
+| Análises | `/analises` | Estatística descritiva, achados, ranking, evolução N1 → acumulado, janela parcial, predição por regressão | `GET /api/analitico/indicadores/...` e `/predicao` |
 | Relatórios | `/relatorios` | Download em CSV, XLSX e PDF com filtros | `GET /api/analitico/relatorios/inscricoes` |
 
 Os filtros de período e turma, no topo, valem para todas as telas.

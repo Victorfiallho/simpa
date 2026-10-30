@@ -156,6 +156,15 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 - **Painel:** a interface usa uma rota única, `GET /painel`, que entrega indicadores, situação por aluno e os dados dos gráficos. Isso evita várias chamadas por tela.
 - **Consequências:** os números são sempre os atuais, sem risco de ficarem desatualizados. O custo é uma chamada HTTP ao acadêmico por consulta, o que é irrelevante no tamanho do projeto. Se crescer, o caminho é guardar um resumo por inscrição no analítico, atualizado pelos mesmos eventos.
 
+## D21 — Nível 2: interpretação, predição e recomendação
+- **Decisão:** o SIMPA vai além da estatística descritiva com três recursos, todos no serviço analítico:
+  - **Interpretação automática** (`services/interpretacao.py`): regras que transformam os indicadores em achados escritos. Elas dizem quantos alunos estão em risco, se o risco vem de nota ou de falta, qual disciplina concentra o risco, onde a média caiu ou subiu da N1 para o acumulado, a força da correlação frequência × nota e se a turma é homogênea.
+  - **Predição por regressão linear múltipla** (`services/predicao.py`): `N2 = b0 + b1·N1 + b2·frequência_N1`. O ajuste é por mínimos quadrados com as equações normais em forma matricial, `β = (XᵀX)⁻¹Xᵀy`, usando `numpy`; é a ligação com Álgebra Linear. Com a N2 estimada, o sistema projeta a média final e o risco de cada inscrição.
+  - **Recomendações heurísticas** (`services/recomendacoes.py`): cada critério gera uma ação sugerida, com prioridade. Média baixa sugere monitoria; frequência baixa, contato da coordenação; risco em duas ou mais disciplinas, conversa sobre a carga do semestre; projeção de queda, acompanhamento preventivo.
+- **Validação:** o erro do modelo é medido por validação cruzada "deixa um de fora", calculada pela matriz de projeção `H = X(XᵀX)⁻¹Xᵀ` (resíduo sem a observação i = eᵢ / (1 − hᵢᵢ)). Assim o erro informado não fica otimista. O sistema também mede quantas vezes a projeção acerta a situação final de risco.
+- **Por que float aqui:** a regressão é uma estimativa e roda em `float` (numpy). A classificação oficial do RF07 continua em `Decimal` (D06) e não depende da predição.
+- **Limites, mostrados na tela:** é associação, não causa; a amostra é pequena e sintética; inscrições do mesmo aluno não são independentes; a projeção apoia o acompanhamento, mas não substitui a classificação oficial.
+
 ---
 
 ## Princípios gerais adotados

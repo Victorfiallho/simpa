@@ -11,9 +11,9 @@ from app.clientes import academico
 from app.core.database import get_db
 from app.core.respostas import Resposta
 from app.core.seguranca import UsuarioAtual, usuario_atual
-from app.schemas.analitico import Indicadores, Painel, ResultadoRiscoLeitura
+from app.schemas.analitico import Indicadores, Painel, Predicao, ResultadoRiscoLeitura
 from app.services import relatorios
-from app.services.painel import Janela, montar_indicadores, montar_painel
+from app.services.painel import Janela, montar_indicadores, montar_painel, montar_predicao
 from app.services.risco import historico
 
 Usuario = Annotated[UsuarioAtual, Depends(usuario_atual)]
@@ -38,6 +38,13 @@ def obter_painel(turma_id: int | None = None, periodo_letivo: str | None = None)
 
 def _indicadores(inscricoes, recorte: str, janela: Janela) -> Resposta[Indicadores]:
     return Resposta[Indicadores](dados=montar_indicadores(inscricoes, recorte, janela))
+
+
+@painel.get("/predicao", response_model=Resposta[Predicao], tags=["Predição"])
+def obter_predicao(turma_id: int | None = None, periodo_letivo: str | None = None):
+    """Regressão linear N2 ~ N1 + frequência N1 e média final projetada (Nível 2, D21)."""
+    inscricoes = academico.buscar_inscricoes(turma_id=turma_id, periodo_letivo=periodo_letivo)
+    return Resposta[Predicao](dados=montar_predicao(inscricoes))
 
 
 @indicadores.get("/turmas/{turma_id}", response_model=Resposta[Indicadores])

@@ -13,7 +13,9 @@ import {
 import { api } from '../api/cliente';
 import type { Indicadores, Resposta, Situacao } from '../api/tipos';
 import { useDados } from '../api/useDados';
+import { Achados } from '../componentes/Achados';
 import { Conteudo } from '../componentes/Conteudo';
+import { Predicao } from '../componentes/Predicao';
 import { Dica } from '../componentes/Dica';
 import { COR_SITUACAO, formatarNota, formatarPercentual, numero, ROTULO_SITUACAO } from '../dados/formato';
 import { DistribuicaoMedias, EIXO, GRADE } from './VisaoGeral';
@@ -189,6 +191,7 @@ export function Analises({ turmaId, periodo }: Props) {
         {(dados) => (
           <div className="coluna">
             <Estatisticas dados={dados} />
+            <Achados achados={dados.achados} subtitulo="Padrões encontrados automaticamente nesta janela" />
             <div className="graficos">
               <Ranking dados={dados} />
               <Evolucao dados={dados} />
@@ -198,11 +201,13 @@ export function Analises({ turmaId, periodo }: Props) {
               <SituacaoInscricoes dados={dados} />
             </div>
             <p className="cartao-sub">
-              Os indicadores descrevem os dados lançados; não são previsão de reprovação.
+              Os indicadores acima descrevem os dados já lançados. A predição, abaixo, é uma
+              estimativa.
             </p>
           </div>
         )}
       </Conteudo>
+      <Predicao turmaId={turmaId} periodo={turmaId ? null : periodo} />
     </div>
   );
 }

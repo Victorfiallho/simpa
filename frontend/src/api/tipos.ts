@@ -55,6 +55,19 @@ export interface InscricaoPainel {
   justificativa: string;
 }
 
+export interface Achado {
+  gravidade: 'alerta' | 'atencao' | 'info';
+  titulo: string;
+  texto: string;
+}
+
+export interface Recomendacao {
+  prioridade: 'alta' | 'media' | 'baixa';
+  disciplina: string | null;
+  acao: string;
+  motivo: string;
+}
+
 export interface AlunoPainel {
   id: number;
   nome: string;
@@ -65,6 +78,7 @@ export interface AlunoPainel {
   frequencia: Decimal;
   situacao: Situacao;
   inscricoes: InscricaoPainel[];
+  recomendacoes: Recomendacao[];
 }
 
 export interface Painel {
@@ -80,6 +94,7 @@ export interface Painel {
   dispersao: { aluno: string; disciplina: string; media: string; frequencia: string; situacao: Situacao }[];
   correlacao_frequencia_media: Decimal;
   situacao_por_oferta: ({ oferta: string; disciplina_id: number } & Record<Situacao, number>)[];
+  achados: Achado[];
   alunos: AlunoPainel[];
 }
 
@@ -116,6 +131,38 @@ export interface Indicadores {
   }[];
   situacao_alunos: Record<Situacao, number>;
   situacao_inscricoes: Record<Situacao, number>;
+  achados: Achado[];
+}
+
+export interface Predicao {
+  modelo: {
+    equacao: string;
+    variaveis: string[];
+    coeficientes: number[];
+    n: number;
+    r2: number;
+    erro_medio: number;
+    erro_validacao: number;
+    acerto_risco: number;
+    interpretacao: string[];
+  } | null;
+  observacao: string | null;
+  previsoes: {
+    inscricao_id: number;
+    aluno_id: number;
+    aluno: string;
+    matricula: string;
+    disciplina: string;
+    nota_n1: string;
+    frequencia_n1: string;
+    nota_n2_prevista: string;
+    nota_n2_real: Decimal;
+    media_projetada: string;
+    media_real: Decimal;
+    situacao_atual: Situacao;
+    risco_projetado: boolean;
+  }[];
+  limites: string[];
 }
 
 export interface ResultadoRisco {

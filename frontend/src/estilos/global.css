@@ -1164,6 +1164,122 @@ p {
   border-radius: 6px;
 }
 
+/* ---------- Interpretação, predição e recomendações ---------- */
+
+.achados {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.achados li {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--painel);
+  font-size: 13px;
+}
+
+.achados li > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.achados li.alerta > svg { color: var(--coral); }
+.achados li.atencao > svg { color: #b88a1c; }
+.achados li.info > svg { color: var(--azul); }
+
+.achados strong {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.achados p {
+  color: var(--texto-2);
+  line-height: 1.5;
+}
+
+.titulo-secao {
+  margin-top: 8px;
+}
+
+.titulo-secao h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.equacao {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--moldura);
+  color: #f2efe7;
+  font-size: 15px;
+}
+
+.estatisticas-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lista-simples {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 0;
+  padding-left: 18px;
+  color: var(--texto-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lista-simples.limites {
+  color: var(--texto-3);
+  font-size: 12px;
+}
+
+.recomendacoes {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recomendacoes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.recomendacoes strong {
+  display: block;
+  font-weight: 600;
+}
+
+.recomendacoes small {
+  color: var(--texto-3);
+  font-size: 12px;
+}
+
+.prioridade {
+  flex-shrink: 0;
+  width: 52px;
+  padding: 2px 0;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.prioridade.alta { background: #f8d8cc; color: var(--coral-escuro); }
+.prioridade.media { background: #f6e6bc; color: var(--amarelo-escuro); }
+.prioridade.baixa { background: #dcdefb; color: var(--azul-escuro); }
+
 /* ---------- Relatórios ---------- */
 
 .relatorios {
