@@ -46,6 +46,7 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | 403 | `REABERTURA_RESTRITA` | Quem não é admin tentou reabrir turma ou disciplina encerrada | D10 |
 | 422 | `REFERENCIA_INVALIDA` | Id citado no corpo (turma, aluno, disciplina, inscrição) não existe | RNF08 |
 | 422 | `PROFESSOR_INVALIDO` | `professor_id` não é de um professor ativo no auth | D03, D13 |
+| 422 | `REGRAS_INVALIDAS` | Regras de cenário fora de 0 a 10, ou média de recuperação acima da de aprovação | RF07 |
 | 422 | `ALUNO_INATIVO` | Inscrição de aluno que não está ativo | RF03 |
 | 422 | `DISCIPLINA_INATIVA` | Inscrição em disciplina inativa | RF03 |
 | 422 | `INSCRICAO_INATIVA` | Nota ou frequência em inscrição trancada, concluída ou cancelada | RF03 |
