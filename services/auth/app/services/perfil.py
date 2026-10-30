@@ -68,7 +68,7 @@ def saida(db: Session, usuario_id: int) -> PerfilSaida:
         usuario_id=usuario.id,
         nome_usuario=usuario.nome_usuario,
         role=usuario.role,
-        aluno_id=getattr(usuario, "aluno_id", None),  # existe quando o perfil aluno estiver no ar
+        aluno_id=usuario.aluno_id,
         **{
             k: v
             for k, v in campos.items()

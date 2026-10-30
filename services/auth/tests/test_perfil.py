@@ -227,3 +227,16 @@ def test_foto_de_outro_usuario_so_para_gestao_ou_o_dono(cliente):  # noqa: F811
     negada = cliente.get("/usuarios/3/foto", headers=cab("professor", 4))
     assert negada.status_code == 403
     assert cliente.get("/usuarios/3/foto").status_code == 401
+
+
+def test_aluno_tem_perfil_proprio_mas_nao_ve_foto_alheia(sessoes, cliente):  # noqa: F811
+    from app.services import usuarios
+
+    with sessoes() as db:
+        aluno = usuarios.criar_usuario(db, "ana.aluna", "aluna@a.dev", SENHA, "aluno", aluno_id=8)
+    dele = cab("aluno", aluno.id, aluno_id=8)
+    cliente.put("/me/foto", content=PNG, headers=ana())
+
+    assert ver(cliente, dele)["aluno_id"] == 8
+    assert cliente.patch("/me", json={"cidade": "Anápolis"}, headers=dele).status_code == 200
+    assert cliente.get("/usuarios/3/foto", headers=dele).status_code == 403
