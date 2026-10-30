@@ -1414,3 +1414,100 @@ p {
     font-size: 22px;
   }
 }
+
+/* ---------- Alertas, cenários e copiloto ---------- */
+
+.tabela tr.encerrado td {
+  opacity: 0.55;
+}
+
+.tabela tr.selecionada {
+  background: var(--cartao-2);
+}
+
+.tabela select,
+.parametros input,
+.cartao textarea {
+  padding: 6px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--texto);
+}
+
+.cartao textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
+
+.parametros {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.parametros .campo input {
+  height: 40px;
+  width: 140px;
+}
+
+.copiloto {
+  display: grid;
+  gap: 16px;
+}
+
+.conversa {
+  display: grid;
+  gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mensagem {
+  max-width: 760px;
+  padding: 12px 14px;
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.mensagem.usuario {
+  justify-self: end;
+  border-color: var(--moldura);
+  background: var(--moldura);
+  color: #fff;
+}
+
+.mensagem .lista-simples {
+  margin-top: 8px;
+}
+
+.envio {
+  display: flex;
+  gap: 10px;
+}
+
+.envio input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--texto);
+}
+
+.envio .botao-primario {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+}
+
+.segmentos button:disabled {
+  opacity: 0.5;
+}
