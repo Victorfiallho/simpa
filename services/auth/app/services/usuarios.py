@@ -10,6 +10,7 @@ from app.core.excecoes import Conflito
 from app.core.seguranca import criar_token, gerar_hash_senha, senha_confere
 from app.models import Usuario
 from app.schemas import Token, UsuarioResumo
+from app.services import bloqueio
 
 logger = logging.getLogger("auth.usuarios")
 
@@ -19,13 +20,23 @@ _HASH_FALSO = gerar_hash_senha("senha-que-nunca-confere")
 
 
 def autenticar(db: Session, email: str, senha: str) -> Token | None:
-    """Devolve o token, ou None sem dizer se o erro foi no e-mail ou na senha (RF09 CA01)."""
+    """Devolve o token, ou None sem dizer se o erro foi no e-mail ou na senha (RF09 CA01).
+
+    Levanta MuitasTentativas (429) se o e-mail está bloqueado por erros seguidos.
+    """
+    bloqueio.garantir_liberado(db, email)
     usuario = db.scalar(select(Usuario).where(func.lower(Usuario.email) == email.lower()))
     if usuario is None:
         senha_confere(senha, _HASH_FALSO)
+        valido = False
+    else:
+        valido = senha_confere(senha, usuario.senha_hash) and usuario.ativo
+    if not valido:
+        bloqueio.registrar_falha(db, email)
+        db.commit()
         return None
-    if not senha_confere(senha, usuario.senha_hash) or not usuario.ativo:
-        return None
+    bloqueio.limpar(db, email)
+    db.commit()
     return Token(
         access_token=criar_token(usuario.id, usuario.role, usuario.nome_usuario, usuario.aluno_id),
         expira_em_minutos=get_settings().jwt_expira_minutos,

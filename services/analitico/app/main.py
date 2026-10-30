@@ -2,7 +2,7 @@
 
 from fastapi import Depends, FastAPI
 
-from app.api import apoio, rotas
+from app.api import alertas, apoio, cenarios, copiloto, rotas
 from app.core.config import get_settings
 from app.core.excecoes import registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
@@ -21,7 +21,16 @@ app = FastAPI(
 registrar_middleware_de_logs(app, logger)
 registrar_tratadores(app, logger)
 
-for roteador in (rotas.painel, rotas.indicadores, rotas.riscos, rotas.relatorio):
+for roteador in (
+    rotas.painel,
+    rotas.indicadores,
+    rotas.riscos,
+    rotas.relatorio,
+    alertas.alerta,
+    alertas.acompanhamentos,
+    cenarios.cenario,
+    copiloto.router,
+):
     app.include_router(roteador, dependencies=[Depends(usuario_atual)])
 
 # As rotas do aluno e do apoio fazem a própria checagem de perfil (aluno ou gestão).

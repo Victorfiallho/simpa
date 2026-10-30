@@ -132,7 +132,10 @@ Exemplo: `TURMA ||--o{ ALUNO` significa que todo aluno pertence a exatamente uma
 | acadêmico | inscricao | `UNIQUE(aluno_id, disciplina_id)` | D01 |
 | acadêmico | avaliacao | `CHECK(nota BETWEEN 0 AND 10)`, `CHECK(peso > 0)` | RF03 |
 | acadêmico | frequencia | `CHECK(aulas_previstas > 0)`, `CHECK(faltas BETWEEN 0 AND aulas_previstas)`, `UNIQUE(inscricao_id, periodo_avaliacao)` | RF03, D02 |
+| acadêmico | registro_semanal | `UNIQUE(inscricao_id, semana_inicio)`, `CHECK(atividades_entregues BETWEEN 0 AND atividades_previstas)` | RF07 |
 | analítico | resultado_risco | índice em `inscricao_id` (consulta do histórico) | D11 |
+| analítico | atendimento_alerta | `UNIQUE(aluno_id, tipo, disciplina_id)`, `CHECK` em tipo, estado e nível | RF07 |
+| analítico | acompanhamento | índice em `aluno_id`, `CHECK` em tipo | RF07 |
 | todos | FKs dentro do mesmo banco | `ON DELETE RESTRICT` (sem exclusão física com histórico) | Restrição 3 |
 
 ## O que fica de fora do banco (e por quê)
@@ -140,6 +143,7 @@ Exemplo: `TURMA ||--o{ ALUNO` significa que todo aluno pertence a exatamente uma
 - **Indicadores estatísticos (RF05):** são calculados sob demanda no serviço analítico. Guardá-los criaria dados duplicados que podem ficar desatualizados.
 - **`frequencia_percentual`:** é derivado de `faltas` e `aulas_previstas` (D02).
 - **`ResultadoRisco`** é a exceção. Ele é persistido porque o RF07 exige registrar o critério violado, e o histórico permite ver a evolução do aluno. Uma linha nova só é gravada quando a classificação muda (D11).
+- **`AtendimentoAlerta`** e **`Acompanhamento`** também são persistidos, porque registram decisões humanas (situação do atendimento e ações da coordenação). Os **alertas em si continuam derivados**: são calculados na hora, nos sinais `queda`, `frequencia` e `abandono`. O atendimento guarda o nível do alerta no momento da decisão; se o alerta piorar depois, ele volta a aparecer como pendente. O `abandono` é um alerta do aluno (disciplina 0) e usa o `RegistroSemanal` do acadêmico: presença e atividades por semana, identificada pela segunda-feira.
 
 ## Regras que o banco NÃO garante sozinho (ficam no service)
 
