@@ -34,10 +34,8 @@ def _cliente_jwks() -> jwt.PyJWKClient:
     return jwt.PyJWKClient(get_settings().auth_jwks_url, cache_keys=True)
 
 
-def usuario_atual(
-    credenciais: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-) -> UsuarioAtual:
-    """Devolve o usuário do token ou responde 401 com mensagem genérica (RF09 CA01)."""
+def _decodificar(credenciais: HTTPAuthorizationCredentials | None) -> tuple[dict, HTTPException]:
+    """Valida a assinatura do token. Devolve o conteúdo e o erro 401 genérico (RF09 CA01)."""
     nao_autenticado = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não autenticado",
@@ -57,7 +55,39 @@ def usuario_atual(
         )
     except jwt.PyJWTError as erro:
         raise nao_autenticado from erro
+    return dados, nao_autenticado
 
+
+def usuario_atual(
+    credenciais: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> UsuarioAtual:
+    """Devolve o usuário (admin, coordenador ou professor) ou responde 401 genérico."""
+    dados, nao_autenticado = _decodificar(credenciais)
     if dados.get("role") not in ROLES or not str(dados["sub"]).isdigit():
         raise nao_autenticado
     return UsuarioAtual(id=int(dados["sub"]), role=dados["role"], nome=dados.get("nome"))
+
+
+class AlunoAtual(BaseModel):
+    """O aluno logado: o id do usuário no auth e o do cadastro dele no acadêmico."""
+
+    id: int
+    aluno_id: int
+    nome: str | None = None
+
+
+def aluno_atual(
+    credenciais: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> AlunoAtual:
+    """Só aceita token do perfil aluno, com `aluno_id`. As rotas dos outros perfis seguem
+    usando `usuario_atual`, que recusa este token."""
+    dados, nao_autenticado = _decodificar(credenciais)
+    aluno_id = dados.get("aluno_id")
+    if (
+        dados.get("role") != "aluno"
+        or not str(dados["sub"]).isdigit()
+        or not isinstance(aluno_id, int)
+        or isinstance(aluno_id, bool)
+    ):
+        raise nao_autenticado
+    return AlunoAtual(id=int(dados["sub"]), aluno_id=aluno_id, nome=dados.get("nome"))

@@ -34,6 +34,9 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 | Consultar alunos, indicadores e risco | ✔ | ✔ | ✔ (só alunos das suas disciplinas) |
 | Exportar relatórios | ✔ | ✔ | |
 | Reabrir turma/disciplina encerrada | ✔ | | |
+| Consultar o próprio desempenho e pedir apoio (`/meu/...` no analítico) | | | |
+
+**Perfil `aluno` (acrescentado à D03):** o usuário aluno aponta para o seu cadastro no acadêmico (`Usuario.aluno_id`, sem FK, D13) e o token traz `aluno_id`. Ele só acessa as rotas `/meu/...` do analítico, e o `aluno_id` sempre vem do token, nunca da requisição. As demais rotas, inclusive todas do acadêmico, recusam o token de aluno.
 
 - **Consequência:** `Disciplina.professor_id` passa a guardar o id de um `Usuario`, e não mais texto livre. Como `Usuario` fica no serviço auth, esse id não é uma FK no banco (ver D13).
 

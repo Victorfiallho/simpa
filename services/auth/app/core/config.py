@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # Em desenvolvimento, cria um usuário de cada perfil na subida (docker-compose.override.yml).
     usuarios_demo: bool = False
     demo_senha: str | None = None
+    # Id de um Aluno já cadastrado no acadêmico; com ele, a demonstração ganha o usuário aluno.demo.
+    demo_aluno_id: int | None = None
 
 
 @lru_cache
