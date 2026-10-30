@@ -7,7 +7,7 @@ from app.core.database import Base
 
 
 class LogRequisicao(Base):
-    """Auditoria das requisições (RF12). A gravação entra na Fase 3."""
+    """Auditoria das requisições (RF12). Gravada pelo worker do auth (evento log.requisicao)."""
 
     __tablename__ = "log_requisicao"
 

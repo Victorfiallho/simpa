@@ -24,7 +24,7 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | HTTP | Código | Quando acontece |
 |---|---|---|
 | 401 | `NAO_AUTENTICADO` | Sem token, token inválido ou expirado; e-mail ou senha errados no login (mensagem genérica, RF09 CA01) |
-| 403 | `ACESSO_NEGADO` | Usuário autenticado sem permissão para a ação |
+| 403 | `ACESSO_NEGADO` | Perfil do usuário não permite a ação (tabela da D03) |
 | 404 | `NAO_ENCONTRADO` | O recurso do caminho da URL não existe |
 | 405 | `METODO_NAO_PERMITIDO` | Método HTTP não aceito na rota |
 | 409 | `CONFLITO` | O banco recusou o registro por uma regra de unicidade ou integridade não tratada antes |
@@ -44,6 +44,8 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | 409 | `DISCIPLINA_ENCERRADA` | Lançamento em disciplina encerrada, ou em disciplina de turma encerrada | D10 |
 | 409 | `TURMA_ENCERRADA` | Nova disciplina ou inativação em turma encerrada | D10 |
 | 403 | `REABERTURA_RESTRITA` | Quem não é admin tentou reabrir turma ou disciplina encerrada | D10 |
+| 403 | `DISCIPLINA_FORA_DO_ESCOPO` | Professor tentou acessar disciplina (ou inscrição, nota, frequência) de outro professor | D03 |
+| 403 | `ALUNO_FORA_DO_ESCOPO` | Professor tentou consultar aluno sem inscrição nas suas disciplinas | D03 |
 | 422 | `REFERENCIA_INVALIDA` | Id citado no corpo (turma, aluno, disciplina, inscrição) não existe | RNF08 |
 | 422 | `PROFESSOR_INVALIDO` | `professor_id` não é de um professor ativo no auth | D03, D13 |
 | 422 | `REGRAS_INVALIDAS` | Regras de cenário fora de 0 a 10, ou média de recuperação acima da de aprovação | RF07 |
@@ -61,3 +63,10 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | 409 | `USUARIO_DUPLICADO` | Nome de usuário ou e-mail já cadastrado | RF09 |
 
 Para criar um código novo: crie a exceção com `codigo="..."` no service, acrescente uma linha aqui e um teste que confira o código.
+
+## Registro semanal (acadêmico)
+
+| HTTP | Código | Quando acontece | Origem |
+|---|---|---|---|
+| 409 | `SEMANA_DUPLICADA` | Já existe registro da mesma semana para a inscrição | RF07 |
+| 422 | `ENTREGAS_INVALIDAS` | Atividades entregues acima das previstas, ao atualizar | RF07 |
