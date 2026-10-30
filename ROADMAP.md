@@ -187,9 +187,9 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] `POST /login` no auth (pelo gateway: `/api/auth/login`) usando `criar_token`
 - [x] Login inválido → 401 com mensagem genérica, sem dizer se foi o e-mail ou a senha (RF09 CA01)
 - [x] Rota protegida sem token → 401 (todas as rotas do acadêmico exigem token, D17)
-- [ ] Dependências de autorização seguindo a tabela da D03
-- [ ] Professor só lança e consulta dados das próprias disciplinas
-- [ ] Só Admin reabre turma/disciplina encerrada (D10)
+- [x] Dependências de autorização seguindo a tabela da D03 (`exigir_roles`; "gerenciar usuários" ainda não tem rota no auth)
+- [x] Professor só lança e consulta dados das próprias disciplinas (acadêmico e analítico)
+- [x] Só Admin reabre turma/disciplina encerrada (D10)
 - [x] Um usuário de cada perfil para a demonstração (`USUARIOS_DEMO`)
 
 ### 3.2 Logs e auditoria — RF12, RNF16
