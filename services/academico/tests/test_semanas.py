@@ -116,3 +116,31 @@ def test_rota_interna_entrega_as_semanas_em_ordem(cliente, inscricao):
 
     assert [s["semana_inicio"] for s in corpo["semanas"]] == ["2026-09-07", "2026-09-14"]
     assert corpo["semanas"][0]["presente"] is True
+
+
+# ---------- Perfis (D03): como as notas, só admin e o professor da disciplina lançam ----------
+
+
+def test_coordenador_nao_lanca_semana(cliente, usuario, inscricao):
+    usuario.role = "coordenador"
+
+    resposta = cliente.post("/semanas", json=registro(inscricao))
+
+    assert resposta.status_code == 403
+
+
+def test_professor_da_disciplina_lanca_e_o_de_fora_nao(cliente, usuario, inscricao):
+    usuario.role, usuario.id = "professor", 3
+    criada = cliente.post("/semanas", json=registro(inscricao))
+    assert criada.status_code == 201
+
+    usuario.id = 99
+    assert (
+        cliente.post("/semanas", json=registro(inscricao, semana_inicio="2026-09-14")).status_code
+        == 403
+    )
+    registro_id = criada.json()["dados"]["id"]
+    assert cliente.patch(f"/semanas/{registro_id}", json={"presente": False}).status_code == 403
+    assert cliente.delete(f"/semanas/{registro_id}").status_code == 403
+    assert cliente.get(f"/semanas/{registro_id}").status_code == 403
+    assert cliente.get("/semanas").json()["total_registros"] == 0

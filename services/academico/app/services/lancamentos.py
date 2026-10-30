@@ -6,6 +6,7 @@ Depois do commit, cada alteração publica um evento para o analítico recalcula
 from sqlalchemy.orm import Session
 
 from app.core.excecoes import Conflito, RegraDeNegocioViolada
+from app.core.seguranca import UsuarioAtual
 from app.events import publicador
 from app.models import Avaliacao, Frequencia, Inscricao, RegistroSemanal
 from app.repositories.academico import (
@@ -26,6 +27,7 @@ from app.services.comum import (
     mudancas,
     referencia,
 )
+from app.services.escopo import garantir_inscricao_propria
 
 
 def _avisar(evento: str, inscricao_id: int) -> None:
@@ -81,8 +83,9 @@ def cancelar_inscricao(db: Session, inscricao_id: int) -> Inscricao:
 # ---------- Avaliações ----------
 
 
-def criar_avaliacao(db: Session, dados: AvaliacaoCriacao) -> Avaliacao:
+def criar_avaliacao(db: Session, dados: AvaliacaoCriacao, usuario: UsuarioAtual) -> Avaliacao:
     inscricao = referencia(InscricaoRepositorio(db), dados.inscricao_id)
+    garantir_inscricao_propria(inscricao, usuario)
     garantir_lancamento_permitido(inscricao)
     avaliacao = AvaliacaoRepositorio(db).adicionar(Avaliacao(**dados.model_dump()))
     db.commit()
@@ -91,9 +94,12 @@ def criar_avaliacao(db: Session, dados: AvaliacaoCriacao) -> Avaliacao:
     return avaliacao
 
 
-def atualizar_avaliacao(db: Session, avaliacao_id: int, dados: AvaliacaoAtualizacao) -> Avaliacao:
+def atualizar_avaliacao(
+    db: Session, avaliacao_id: int, dados: AvaliacaoAtualizacao, usuario: UsuarioAtual
+) -> Avaliacao:
     repositorio = AvaliacaoRepositorio(db)
     avaliacao = repositorio.obter_ou_falhar(avaliacao_id)
+    garantir_inscricao_propria(avaliacao.inscricao, usuario)
     garantir_lancamento_permitido(avaliacao.inscricao)
     repositorio.atualizar(avaliacao, mudancas(dados))
     db.commit()
@@ -102,10 +108,11 @@ def atualizar_avaliacao(db: Session, avaliacao_id: int, dados: AvaliacaoAtualiza
     return avaliacao
 
 
-def remover_avaliacao(db: Session, avaliacao_id: int) -> None:
+def remover_avaliacao(db: Session, avaliacao_id: int, usuario: UsuarioAtual) -> None:
     """Uma nota lançada por engano pode ser apagada enquanto a disciplina está aberta."""
     repositorio = AvaliacaoRepositorio(db)
     avaliacao = repositorio.obter_ou_falhar(avaliacao_id)
+    garantir_inscricao_propria(avaliacao.inscricao, usuario)
     garantir_lancamento_permitido(avaliacao.inscricao)
     inscricao_id = avaliacao.inscricao_id
     repositorio.remover(avaliacao)
@@ -129,9 +136,10 @@ def _periodo_livre(
         )
 
 
-def criar_frequencia(db: Session, dados: FrequenciaCriacao) -> Frequencia:
+def criar_frequencia(db: Session, dados: FrequenciaCriacao, usuario: UsuarioAtual) -> Frequencia:
     repositorio = FrequenciaRepositorio(db)
     inscricao = referencia(InscricaoRepositorio(db), dados.inscricao_id)
+    garantir_inscricao_propria(inscricao, usuario)
     garantir_lancamento_permitido(inscricao)
     _periodo_livre(repositorio, inscricao.id, dados.periodo_avaliacao)
     frequencia = repositorio.adicionar(Frequencia(**dados.model_dump()))
@@ -141,10 +149,11 @@ def criar_frequencia(db: Session, dados: FrequenciaCriacao) -> Frequencia:
 
 
 def atualizar_frequencia(
-    db: Session, frequencia_id: int, dados: FrequenciaAtualizacao
+    db: Session, frequencia_id: int, dados: FrequenciaAtualizacao, usuario: UsuarioAtual
 ) -> Frequencia:
     repositorio = FrequenciaRepositorio(db)
     frequencia = repositorio.obter_ou_falhar(frequencia_id)
+    garantir_inscricao_propria(frequencia.inscricao, usuario)
     garantir_lancamento_permitido(frequencia.inscricao)
     alteracoes = mudancas(dados)
 
@@ -165,9 +174,10 @@ def atualizar_frequencia(
     return frequencia
 
 
-def remover_frequencia(db: Session, frequencia_id: int) -> None:
+def remover_frequencia(db: Session, frequencia_id: int, usuario: UsuarioAtual) -> None:
     repositorio = FrequenciaRepositorio(db)
     frequencia = repositorio.obter_ou_falhar(frequencia_id)
+    garantir_inscricao_propria(frequencia.inscricao, usuario)
     garantir_lancamento_permitido(frequencia.inscricao)
     inscricao_id = frequencia.inscricao_id
     repositorio.remover(frequencia)
@@ -193,9 +203,12 @@ def _semana_livre(
         )
 
 
-def criar_semana(db: Session, dados: RegistroSemanalCriacao) -> RegistroSemanal:
+def criar_semana(
+    db: Session, dados: RegistroSemanalCriacao, usuario: UsuarioAtual
+) -> RegistroSemanal:
     repositorio = RegistroSemanalRepositorio(db)
     inscricao = referencia(InscricaoRepositorio(db), dados.inscricao_id)
+    garantir_inscricao_propria(inscricao, usuario)
     garantir_lancamento_permitido(inscricao)
     _semana_livre(repositorio, inscricao.id, dados.semana_inicio)
     registro = repositorio.adicionar(RegistroSemanal(**dados.model_dump()))
@@ -204,10 +217,11 @@ def criar_semana(db: Session, dados: RegistroSemanalCriacao) -> RegistroSemanal:
 
 
 def atualizar_semana(
-    db: Session, registro_id: int, dados: RegistroSemanalAtualizacao
+    db: Session, registro_id: int, dados: RegistroSemanalAtualizacao, usuario: UsuarioAtual
 ) -> RegistroSemanal:
     repositorio = RegistroSemanalRepositorio(db)
     registro = repositorio.obter_ou_falhar(registro_id)
+    garantir_inscricao_propria(registro.inscricao, usuario)
     garantir_lancamento_permitido(registro.inscricao)
     alteracoes = mudancas(dados)
     previstas = alteracoes.get("atividades_previstas", registro.atividades_previstas)
@@ -222,9 +236,10 @@ def atualizar_semana(
     return registro
 
 
-def remover_semana(db: Session, registro_id: int) -> None:
+def remover_semana(db: Session, registro_id: int, usuario: UsuarioAtual) -> None:
     repositorio = RegistroSemanalRepositorio(db)
     registro = repositorio.obter_ou_falhar(registro_id)
+    garantir_inscricao_propria(registro.inscricao, usuario)
     garantir_lancamento_permitido(registro.inscricao)
     repositorio.remover(registro)
     db.commit()
