@@ -6,18 +6,24 @@ emitir um token, mesmo que seja comprometido.
 """
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import bcrypt
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.algorithms import RSAAlgorithm
+from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.core.excecoes import AcessoNegado
+from app.core.logs import identificar_usuario
 
 ALGORITMO = "RS256"
 EMISSOR = "simpa-auth"
@@ -81,3 +87,57 @@ def senha_confere(senha: str, senha_hash: str) -> bool:
     if len(senha_bytes) > LIMITE_SENHA_BYTES:
         return False
     return bcrypt.checkpw(senha_bytes, senha_hash.encode())
+
+
+# ---------- Validação do token nas rotas protegidas do próprio auth ----------
+
+ROLES = {"admin", "coordenador", "professor"}
+_bearer = HTTPBearer(auto_error=False)
+
+
+class UsuarioAtual(BaseModel):
+    id: int
+    role: str
+    nome: str | None = None
+
+
+def usuario_atual(
+    credenciais: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> UsuarioAtual:
+    """Valida o token com a própria chave pública; 401 com mensagem genérica (RF09 CA01)."""
+    nao_autenticado = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Não autenticado",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if credenciais is None:
+        raise nao_autenticado
+    try:
+        dados = jwt.decode(
+            credenciais.credentials,
+            chave_privada().public_key(),
+            algorithms=[ALGORITMO],
+            issuer=EMISSOR,
+            options={"require": ["exp", "sub", "iss"]},
+        )
+    except jwt.PyJWTError as erro:
+        raise nao_autenticado from erro
+    if dados.get("role") not in ROLES or not str(dados["sub"]).isdigit():
+        raise nao_autenticado
+
+    identificar_usuario(int(dados["sub"]))
+    return UsuarioAtual(id=int(dados["sub"]), role=dados["role"], nome=dados.get("nome"))
+
+
+def exigir_roles(*permitidos: str) -> Callable[[UsuarioAtual], UsuarioAtual]:
+    """Dependência que responde 403 se o perfil do token não estiver em `permitidos` (D03)."""
+    desconhecidos = set(permitidos) - ROLES
+    if desconhecidos:
+        raise ValueError(f"Perfis desconhecidos: {sorted(desconhecidos)}")
+
+    def verificar(usuario: Annotated[UsuarioAtual, Depends(usuario_atual)]) -> UsuarioAtual:
+        if usuario.role not in permitidos:
+            raise AcessoNegado("Seu perfil não tem permissão para esta ação.")
+        return usuario
+
+    return verificar
