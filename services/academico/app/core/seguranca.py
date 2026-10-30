@@ -15,6 +15,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.core.logs import identificar_usuario
 
 ALGORITMO = "RS256"
 EMISSOR = "simpa-auth"
@@ -60,4 +61,6 @@ def usuario_atual(
 
     if dados.get("role") not in ROLES or not str(dados["sub"]).isdigit():
         raise nao_autenticado
+
+    identificar_usuario(int(dados["sub"]))
     return UsuarioAtual(id=int(dados["sub"]), role=dados["role"], nome=dados.get("nome"))
