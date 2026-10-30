@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 
 import type { Painel, Situacao } from '../api/tipos';
+import { Achados } from '../componentes/Achados';
 import { Anel } from '../componentes/Anel';
 import { Dica } from '../componentes/Dica';
 import { Selo } from '../componentes/Selo';
@@ -297,6 +298,7 @@ export function VisaoGeral({ painel }: { painel: Painel }) {
     <div className="visao">
       <div className="coluna">
         <Indicadores painel={painel} />
+        <Achados achados={painel.achados} subtitulo="Padrões encontrados automaticamente no recorte escolhido" />
         <div className="graficos">
           <DistribuicaoMedias histograma={painel.histograma} />
           <Dispersao painel={painel} />

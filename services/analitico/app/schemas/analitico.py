@@ -27,6 +27,25 @@ class InscricaoPainel(BaseModel):
     justificativa: str
 
 
+class AchadoSaida(BaseModel):
+    """Padrão detectado nos dados, descrito em uma frase (interpretação automática)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    gravidade: str
+    titulo: str
+    texto: str
+
+
+class RecomendacaoSaida(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    prioridade: str
+    disciplina: str | None
+    acao: str
+    motivo: str
+
+
 class AlunoPainel(BaseModel):
     id: int
     nome: str
@@ -39,6 +58,7 @@ class AlunoPainel(BaseModel):
     atencao: bool
     situacao: str
     inscricoes: list[InscricaoPainel]
+    recomendacoes: list[RecomendacaoSaida] = []
 
 
 class FaixaHistograma(BaseModel):
@@ -78,6 +98,7 @@ class Painel(BaseModel):
     dispersao: list[PontoDispersao]
     correlacao_frequencia_media: Decimal | None
     situacao_por_oferta: list[SituacaoOferta]
+    achados: list[AchadoSaida]
     alunos: list[AlunoPainel]
 
 
@@ -120,6 +141,44 @@ class Indicadores(BaseModel):
     por_disciplina: list[IndicadorDisciplina]
     situacao_alunos: dict[str, int]
     situacao_inscricoes: dict[str, int]
+    achados: list[AchadoSaida]
+
+
+class ModeloRegressao(BaseModel):
+    equacao: str
+    variaveis: list[str]
+    coeficientes: list[float]
+    n: int
+    r2: float
+    erro_medio: float
+    erro_validacao: float
+    acerto_risco: float
+    interpretacao: list[str]
+
+
+class PrevisaoInscricao(BaseModel):
+    inscricao_id: int
+    aluno_id: int
+    aluno: str
+    matricula: str
+    disciplina: str
+    nota_n1: Decimal
+    frequencia_n1: Decimal
+    nota_n2_prevista: Decimal
+    nota_n2_real: Decimal | None
+    media_projetada: Decimal
+    media_real: Decimal | None
+    situacao_atual: str
+    risco_projetado: bool
+
+
+class Predicao(BaseModel):
+    """Regressão linear N2 ~ N1 + frequência N1 e projeção da média final (Nível 2, D21)."""
+
+    modelo: ModeloRegressao | None
+    observacao: str | None
+    previsoes: list[PrevisaoInscricao]
+    limites: list[str]
 
 
 class ResultadoRiscoLeitura(BaseModel):

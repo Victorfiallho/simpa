@@ -12,17 +12,24 @@ from typing import Literal
 
 from app.clientes.academico import Inscricao
 from app.schemas.analitico import (
+    AchadoSaida,
     AlunoPainel,
     FaixaHistograma,
     IndicadorDisciplina,
     Indicadores,
     InscricaoPainel,
+    ModeloRegressao,
     Painel,
     PontoDispersao,
+    Predicao,
+    PrevisaoInscricao,
+    RecomendacaoSaida,
     ResumoEstatistico,
     SituacaoOferta,
 )
-from app.services import estatistica
+from app.services import estatistica, predicao
+from app.services.interpretacao import gerar_achados
+from app.services.recomendacoes import recomendar
 from app.services.regras import (
     Classificacao,
     arredondar,
@@ -110,7 +117,19 @@ def _histograma(calculadas: Sequence[InscricaoCalculada]) -> list[FaixaHistogram
     return [FaixaHistograma(faixa=f"{i}–{i + 1}", inscricoes=n) for i, n in enumerate(contagem)]
 
 
-def _alunos(calculadas: Sequence[InscricaoCalculada]) -> list[AlunoPainel]:
+def _projecoes(calculadas: list[InscricaoCalculada]) -> dict[int, Decimal]:
+    """Média final projetada pela regressão, por inscrição (vazio se não houver modelo)."""
+    modelo = predicao.ajustar(calculadas)
+    if modelo is None:
+        return {}
+    return {
+        p.calculada.inscricao.id: p.media_projetada for p in predicao.prever(modelo, calculadas)
+    }
+
+
+def _alunos(
+    calculadas: Sequence[InscricaoCalculada], projecoes: dict[int, Decimal] | None = None
+) -> list[AlunoPainel]:
     por_aluno: dict[int, list[InscricaoCalculada]] = {}
     for calculada in calculadas:
         por_aluno.setdefault(calculada.inscricao.aluno.id, []).append(calculada)
@@ -152,6 +171,9 @@ def _alunos(calculadas: Sequence[InscricaoCalculada]) -> list[AlunoPainel]:
                     )
                     for c in lista
                 ],
+                recomendacoes=[
+                    RecomendacaoSaida.model_validate(r) for r in recomendar(lista, projecoes or {})
+                ],
             )
         )
     return sorted(alunos, key=lambda a: a.nome)
@@ -165,7 +187,8 @@ def _contar(situacoes: Iterable[str]) -> dict[str, int]:
 def montar_painel(inscricoes: Iterable[Inscricao]) -> Painel:
     calculadas = [calcular(i) for i in que_contam(inscricoes)]
     validas = [c for c in calculadas if c.classificacao.status != "indeterminado"]
-    alunos = _alunos(calculadas)
+    alunos = _alunos(calculadas, _projecoes(calculadas))
+    contagem = _contar(a.situacao for a in alunos)
 
     ofertas: dict[str, list[InscricaoCalculada]] = {}
     for calculada in calculadas:
@@ -187,7 +210,7 @@ def montar_painel(inscricoes: Iterable[Inscricao]) -> Painel:
         media_n1=_media_simples(c.media_n1 for c in validas),
         frequencia_geral=_media_simples(c.frequencia for c in validas),
         frequencia_n1=_media_simples(c.frequencia_n1 for c in validas),
-        contagem=_contar(a.situacao for a in alunos),
+        contagem=contagem,
         histograma=_histograma(validas),
         dispersao=[
             PontoDispersao(
@@ -205,6 +228,7 @@ def montar_painel(inscricoes: Iterable[Inscricao]) -> Painel:
             [c.media for c in validas if c.media is not None],
         ),
         situacao_por_oferta=situacao_por_oferta,
+        achados=[AchadoSaida.model_validate(a) for a in gerar_achados(calculadas, contagem)],
         alunos=alunos,
     )
 
@@ -239,6 +263,7 @@ def montar_indicadores(
         for disciplina_id, lista in por_disciplina.items()
     ]
     ranking.sort(key=lambda d: d.media or Decimal(0), reverse=True)
+    situacao_alunos = _contar(a.situacao for a in _alunos(calculadas))
 
     return Indicadores(
         recorte=recorte,
@@ -255,6 +280,60 @@ def montar_indicadores(
         ),
         histograma=_histograma(validas),
         por_disciplina=ranking,
-        situacao_alunos=_contar(a.situacao for a in _alunos(calculadas)),
+        situacao_alunos=situacao_alunos,
         situacao_inscricoes=_contar(c.classificacao.situacao for c in calculadas),
+        achados=[AchadoSaida.model_validate(a) for a in gerar_achados(calculadas, situacao_alunos)],
+    )
+
+
+def montar_predicao(inscricoes: Iterable[Inscricao]) -> Predicao:
+    """Regressão N2 ~ N1 + frequência N1 e projeção da média final de cada inscrição (D21)."""
+    calculadas = [calcular(i) for i in que_contam(inscricoes)]
+    modelo = predicao.ajustar(calculadas)
+    if modelo is None:
+        return Predicao(
+            modelo=None,
+            observacao=(
+                f"São necessárias pelo menos {predicao.MINIMO_DE_OBSERVACOES} inscrições com N1, "
+                "N2 e frequência lançadas para ajustar o modelo."
+            ),
+            previsoes=[],
+            limites=predicao.LIMITES,
+        )
+
+    previsoes = [
+        PrevisaoInscricao(
+            inscricao_id=p.calculada.inscricao.id,
+            aluno_id=p.calculada.inscricao.aluno.id,
+            aluno=p.calculada.inscricao.aluno.nome_completo,
+            matricula=p.calculada.inscricao.aluno.matricula,
+            disciplina=_rotulo_oferta(p.calculada),
+            nota_n1=p.calculada.nota_n1,
+            frequencia_n1=p.calculada.frequencia_n1,
+            nota_n2_prevista=p.nota_n2_prevista,
+            nota_n2_real=p.calculada.nota_n2,
+            media_projetada=p.media_projetada,
+            media_real=p.calculada.media,
+            situacao_atual=p.calculada.classificacao.situacao,
+            risco_projetado=p.risco_projetado,
+        )
+        for p in predicao.prever(modelo, calculadas)
+    ]
+    previsoes.sort(key=lambda p: p.media_projetada)
+
+    return Predicao(
+        modelo=ModeloRegressao(
+            equacao=predicao.descrever(modelo),
+            variaveis=list(predicao.VARIAVEIS),
+            coeficientes=list(modelo.coeficientes),
+            n=modelo.n,
+            r2=round(modelo.r2, 4),
+            erro_medio=round(modelo.erro_medio, 4),
+            erro_validacao=round(modelo.erro_validacao, 4),
+            acerto_risco=round(modelo.acerto_risco, 1),
+            interpretacao=predicao.interpretar(modelo),
+        ),
+        observacao=None,
+        previsoes=previsoes,
+        limites=predicao.LIMITES,
     )

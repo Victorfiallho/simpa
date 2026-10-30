@@ -37,7 +37,7 @@ flowchart LR
 | `frontend` | Interface web em React (D12) | RF04, RF06, RNF11, RNF12 |
 | `auth` | Login, emissão de JWT (RS256), usuários e perfis | RF09, D03, D15 |
 | `academico` | Turmas, disciplinas, alunos, inscrições, notas e frequência | RF01–RF04, RF08, D10 |
-| `analitico` | Painel, indicadores, histórico de risco e relatórios (CSV, XLSX, PDF) | RF05–RF07, RF11 |
+| `analitico` | Painel, indicadores, interpretação automática, predição por regressão, recomendações, histórico de risco e relatórios | RF05–RF07, RF11, D21 |
 | `analitico-worker` | Consome os eventos do acadêmico e recalcula o risco | RF03, D11, D14 |
 | `postgres` | PostgreSQL 17 com `auth_db`, `academico_db` e `analitico_db` | RNF08, D16 |
 | `rabbitmq` | Fila de eventos entre os serviços | D14 |
@@ -52,7 +52,7 @@ flowchart LR
 | Mensageria | RabbitMQ (pika) |
 | Gateway | nginx |
 | Autenticação | JWT RS256 (PyJWT) |
-| Análise | `Decimal` (estatística e risco), openpyxl e reportlab (relatórios) |
+| Análise | `Decimal` (estatística e risco), numpy (regressão), openpyxl e reportlab (relatórios) |
 | Qualidade | pytest + ruff |
 | Ambiente | Docker + Docker Compose |
 
