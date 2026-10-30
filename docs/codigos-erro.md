@@ -62,3 +62,10 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | 409 | `USUARIO_DUPLICADO` | Nome de usuário ou e-mail já cadastrado | RF09 |
 
 Para criar um código novo: crie a exceção com `codigo="..."` no service, acrescente uma linha aqui e um teste que confira o código.
+
+## Registro semanal (acadêmico)
+
+| HTTP | Código | Quando acontece | Origem |
+|---|---|---|---|
+| 409 | `SEMANA_DUPLICADA` | Já existe registro da mesma semana para a inscrição | RF07 |
+| 422 | `ENTREGAS_INVALIDAS` | Atividades entregues acima das previstas, ao atualizar | RF07 |
