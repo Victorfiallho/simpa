@@ -195,8 +195,8 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 ### 3.2 Logs e auditoria — RF12, RNF16
 - [x] **Correlation ID** gerado no gateway, devolvido no cabeçalho de resposta e propagado nos eventos
 - [x] Logs em JSON estruturado em todos os serviços
-- [ ] Gravação em `LogRequisicao` (banco do auth) com `usuario_id`, rota, método, status, IP e tempo de resposta. Definir como os outros serviços enviam o registro (ex.: evento `log.requisicao` no RabbitMQ)
-- [ ] Nunca registrar senha, token ou CPF completo; teste automatizado que garante isso
+- [x] Gravação em `LogRequisicao` (banco do auth) com `usuario_id`, rota, método, status, IP e tempo de resposta. Os serviços publicam o evento `log.requisicao` e o `auth-worker` grava (ver decisoes.md, seção de comunicação)
+- [x] Nunca registrar senha, token ou CPF completo; testes automatizados em `tests/test_auditoria.py` de cada serviço
 
 ### 3.3 Segurança de entrada — RNF15, RNF04
 - [ ] Testes de SQL Injection (o ORM protege, mas o teste comprova)
