@@ -47,6 +47,15 @@ class AcessoNegado(ErroDeDominio):
     codigo = "ACESSO_NEGADO"
 
 
+class MuitasTentativas(ErroDeDominio):
+    status_http = 429
+    codigo = "MUITAS_TENTATIVAS"
+
+    def __init__(self, mensagem: str, espera_segundos: int):
+        super().__init__(mensagem)
+        self.espera_segundos = espera_segundos
+
+
 class ServicoIndisponivel(ErroDeDominio):
     status_http = 503
     codigo = "SERVICO_INDISPONIVEL"
@@ -94,7 +103,16 @@ def _campos(erro: RequestValidationError) -> list[CampoInvalido]:
 def registrar_tratadores(app: FastAPI, logger: logging.Logger) -> None:
     @app.exception_handler(ErroDeDominio)
     async def _dominio(_request: Request, erro: ErroDeDominio):
-        return JSONResponse(corpo_de_erro(erro.codigo, erro.mensagem), status_code=erro.status_http)
+        cabecalhos = (
+            {"Retry-After": str(erro.espera_segundos)}
+            if isinstance(erro, MuitasTentativas)
+            else None
+        )
+        return JSONResponse(
+            corpo_de_erro(erro.codigo, erro.mensagem),
+            status_code=erro.status_http,
+            headers=cabecalhos,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validacao(_request: Request, erro: RequestValidationError):
