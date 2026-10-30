@@ -187,16 +187,16 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] `POST /login` no auth (pelo gateway: `/api/auth/login`) usando `criar_token`
 - [x] Login inválido → 401 com mensagem genérica, sem dizer se foi o e-mail ou a senha (RF09 CA01)
 - [x] Rota protegida sem token → 401 (todas as rotas do acadêmico exigem token, D17)
-- [ ] Dependências de autorização seguindo a tabela da D03
-- [ ] Professor só lança e consulta dados das próprias disciplinas
-- [ ] Só Admin reabre turma/disciplina encerrada (D10)
+- [x] Dependências de autorização seguindo a tabela da D03 (`exigir_roles`; "gerenciar usuários" ainda não tem rota no auth)
+- [x] Professor só lança e consulta dados das próprias disciplinas (acadêmico e analítico)
+- [x] Só Admin reabre turma/disciplina encerrada (D10)
 - [x] Um usuário de cada perfil para a demonstração (`USUARIOS_DEMO`)
 
 ### 3.2 Logs e auditoria — RF12, RNF16
 - [x] **Correlation ID** gerado no gateway, devolvido no cabeçalho de resposta e propagado nos eventos
 - [x] Logs em JSON estruturado em todos os serviços
-- [ ] Gravação em `LogRequisicao` (banco do auth) com `usuario_id`, rota, método, status, IP e tempo de resposta. Definir como os outros serviços enviam o registro (ex.: evento `log.requisicao` no RabbitMQ)
-- [ ] Nunca registrar senha, token ou CPF completo; teste automatizado que garante isso
+- [x] Gravação em `LogRequisicao` (banco do auth) com `usuario_id`, rota, método, status, IP e tempo de resposta. Os serviços publicam o evento `log.requisicao` e o `auth-worker` grava (ver decisoes.md, seção de comunicação)
+- [x] Nunca registrar senha, token ou CPF completo; testes automatizados em `tests/test_auditoria.py` de cada serviço
 
 ### 3.3 Segurança de entrada — RNF15, RNF04
 - [ ] Testes de SQL Injection (o ORM protege, mas o teste comprova)

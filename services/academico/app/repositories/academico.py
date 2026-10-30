@@ -3,7 +3,15 @@
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.models import Aluno, Avaliacao, Disciplina, Frequencia, Inscricao, Turma
+from app.models import (
+    Aluno,
+    Avaliacao,
+    Disciplina,
+    Frequencia,
+    Inscricao,
+    RegistroSemanal,
+    Turma,
+)
 from app.repositories.base import Repositorio
 
 
@@ -49,6 +57,7 @@ class InscricaoRepositorio(Repositorio[Inscricao]):
         joinedload(Inscricao.aluno),
         selectinload(Inscricao.avaliacoes),
         selectinload(Inscricao.frequencias),
+        selectinload(Inscricao.semanas),
     )
 
     def obter_detalhada(self, id_: int) -> Inscricao | None:
@@ -91,3 +100,9 @@ class FrequenciaRepositorio(Repositorio[Frequencia]):
     modelo = Frequencia
     nome = "Frequência"
     campos_ordenaveis = frozenset({"id", "periodo_avaliacao"})
+
+
+class RegistroSemanalRepositorio(Repositorio[RegistroSemanal]):
+    modelo = RegistroSemanal
+    nome = "Registro semanal"
+    campos_ordenaveis = frozenset({"id", "semana_inicio"})

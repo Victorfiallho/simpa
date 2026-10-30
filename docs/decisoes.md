@@ -33,6 +33,7 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 | Lançar/editar notas e frequência | ✔ | | ✔ (só nas suas disciplinas) |
 | Consultar alunos, indicadores e risco | ✔ | ✔ | ✔ (só alunos das suas disciplinas) |
 | Exportar relatórios | ✔ | ✔ | |
+| Consultar a trilha de auditoria (`GET /auditoria`) | ✔ | ✔ | |
 | Reabrir turma/disciplina encerrada | ✔ | | |
 
 - **Consequência:** `Disciplina.professor_id` passa a guardar o id de um `Usuario`, e não mais texto livre. Como `Usuario` fica no serviço auth, esse id não é uma FK no banco (ver D13).
@@ -117,6 +118,7 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 - **Decisão:** dois tipos de comunicação.
   - **Síncrona (HTTP):** quando quem chama precisa da resposta para continuar. Ex.: o analítico busca as notas de uma inscrição em `/internal/...` no acadêmico. As rotas `/internal` são bloqueadas no gateway e só existem na rede interna do Docker.
   - **Assíncrona (eventos no RabbitMQ):** quando quem chama só precisa avisar. Ex.: ao gravar uma nota, o acadêmico publica `avaliacao.alterada {inscricao_id}` na exchange `simpa.eventos`; o worker do analítico consome e recalcula o risco (RF03, D11).
+  - **Auditoria (RF12):** ao fim de cada requisição (exceto `/health` e `/internal`), cada serviço publica `log.requisicao {correlation_id, usuario_id, rota, metodo_http, status_http, ip_origem, tempo_resposta_ms, timestamp}`; o worker do auth (`auth-worker`) grava em `LogRequisicao`. Só esses campos saem do serviço: nunca corpo, cabeçalhos, query string, senha, token ou CPF (CPF no caminho é mascarado). A gravação é idempotente pelo `correlation_id` único.
 - **Por que eventos no recálculo do risco:** o lançamento da nota não espera o cálculo, e se o analítico estiver fora do ar as mensagens ficam guardadas na fila até ele voltar.
 - **Regras:**
   - Publicar o evento só **depois** do commit, para não anunciar algo que foi desfeito.
