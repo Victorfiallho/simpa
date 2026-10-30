@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
-TipoAlerta = Literal["queda", "frequencia"]
+TipoAlerta = Literal["queda", "frequencia", "abandono"]
 NivelAlerta = Literal["atencao", "alto"]
 EstadoAtendimento = Literal["pendente", "acomp", "encerrado"]
 TipoAcompanhamento = Literal["contato", "orientacao", "monitoria"]

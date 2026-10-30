@@ -1,16 +1,14 @@
 """Alertas precoces: sinais calculados na hora a partir das notas e faltas (RF07).
 
-Dois sinais, os mesmos do protótipo:
+Três sinais, os mesmos do protótipo:
   queda      — a nota cai entre a N1 e a N2;
-  frequencia — as faltas se aproximam do limite de 25% das aulas já registradas.
+  frequencia — as faltas se aproximam do limite de 25% das aulas já registradas;
+  abandono   — ausência seguida e quase nenhuma atividade entregue (ver abandono.py).
 
-O sinal de "abandono silencioso" depende de presença semanal e entrega de atividades, que
-ainda não existem no acadêmico; entra quando esses dados forem registrados.
 
 Só o atendimento (pendente, em acompanhamento, encerrado) é gravado. O alerta em si é derivado.
 """
 
-from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -19,25 +17,27 @@ from sqlalchemy.orm import Session
 from app.clientes.academico import Inscricao
 from app.models import Acompanhamento, AtendimentoAlerta
 from app.schemas.alertas import AlertaSaida, ListaAlertas, ResumoTipo
+from app.services import abandono
+from app.services.alertas_base import Sinal
 from app.services.painel import calcular, que_contam
 from app.services.regras import formatar
 
-TIPOS = ("queda", "frequencia")
+TIPOS = ("queda", "frequencia", "abandono")  # ordem do resumo
+ORDEM_NA_LISTA = ("abandono", "queda", "frequencia")  # empate de gravidade: abandono primeiro
 RANK = {"atencao": 1, "alto": 2}
 LIMITE_DE_FALTAS = 25  # % das aulas registradas; equivale à frequência mínima de 75%
 LIMITE_QUEDA_GRAVE = Decimal("0.30")
 LIMITE_QUEDA = Decimal("0.20")
 NOTA_BOA = Decimal("7.00")
 MARGEM_CRITICA = 2
+SEM_DISCIPLINA = 0  # o alerta de abandono é do aluno, não de uma disciplina
 
 
-@dataclass(frozen=True)
-class Sinal:
-    tipo: str
-    nivel: str
-    titulo: str
-    detalhe: str
-    acao: str
+def _por_aluno(inscricoes: list[Inscricao]) -> dict[int, list[Inscricao]]:
+    grupos: dict[int, list[Inscricao]] = {}
+    for inscricao in inscricoes:
+        grupos.setdefault(inscricao.aluno.id, []).append(inscricao)
+    return grupos
 
 
 def sinal_de_queda(nome_disciplina: str, n1: Decimal | None, n2: Decimal | None) -> Sinal | None:
@@ -132,7 +132,34 @@ def montar_alertas(db: Session, inscricoes: list[Inscricao]) -> list[AlertaSaida
     atendimentos = _atendimentos(db)
     contatos = _ultimo_contato(db)
     saida: list[AlertaSaida] = []
-    for inscricao in que_contam(inscricoes):
+    validas = que_contam(inscricoes)
+    for aluno_id, do_aluno in _por_aluno(validas).items():
+        aluno = do_aluno[0].aluno
+        if aluno.status != "ativo":
+            continue
+        sinal_aluno = abandono.sinal_do_aluno(do_aluno)
+        if sinal_aluno is not None:
+            saida.append(
+                AlertaSaida(
+                    aluno_id=aluno.id,
+                    aluno_nome=aluno.nome_completo,
+                    matricula=aluno.matricula,
+                    disciplina_id=SEM_DISCIPLINA,
+                    disciplina_nome="Todas as disciplinas",
+                    professor_id=None,
+                    tipo=sinal_aluno.tipo,  # type: ignore[arg-type]
+                    nivel=sinal_aluno.nivel,  # type: ignore[arg-type]
+                    titulo=sinal_aluno.titulo,
+                    detalhe=sinal_aluno.detalhe,
+                    acao_sugerida=sinal_aluno.acao,
+                    estado=estado_efetivo(
+                        atendimentos.get((aluno_id, sinal_aluno.tipo, SEM_DISCIPLINA)),
+                        sinal_aluno.nivel,
+                    ),
+                    ultimo_contato=contatos.get(aluno.id, "Sem acompanhamento registrado"),
+                )
+            )
+    for inscricao in validas:
         aluno = inscricao.aluno
         if aluno.status != "ativo":
             continue
@@ -159,7 +186,7 @@ def montar_alertas(db: Session, inscricoes: list[Inscricao]) -> list[AlertaSaida
         key=lambda a: (
             a.estado == "encerrado",
             -RANK[a.nivel],
-            TIPOS.index(a.tipo),
+            ORDEM_NA_LISTA.index(a.tipo),
             a.aluno_nome.casefold(),
         )
     )

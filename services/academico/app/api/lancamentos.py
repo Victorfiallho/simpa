@@ -10,6 +10,7 @@ from app.repositories.academico import (
     AvaliacaoRepositorio,
     FrequenciaRepositorio,
     InscricaoRepositorio,
+    RegistroSemanalRepositorio,
 )
 from app.schemas.avaliacao import AvaliacaoAtualizacao, AvaliacaoCriacao, AvaliacaoLeitura
 from app.schemas.frequencia import FrequenciaAtualizacao, FrequenciaCriacao, FrequenciaLeitura
@@ -19,11 +20,17 @@ from app.schemas.inscricao import (
     InscricaoLeitura,
     StatusInscricao,
 )
+from app.schemas.registro_semanal import (
+    RegistroSemanalAtualizacao,
+    RegistroSemanalCriacao,
+    RegistroSemanalLeitura,
+)
 from app.services import lancamentos
 
 inscricoes = APIRouter(prefix="/inscricoes", tags=["Inscrições"])
 avaliacoes = APIRouter(prefix="/avaliacoes", tags=["Avaliações"])
 frequencias = APIRouter(prefix="/frequencias", tags=["Frequências"])
+semanas = APIRouter(prefix="/semanas", tags=["Registro semanal"])
 
 # ---------- Inscrições ----------
 
@@ -143,3 +150,38 @@ def atualizar_frequencia(frequencia_id: int, dados: FrequenciaAtualizacao, db: S
 def remover_frequencia(frequencia_id: int, db: Sessao):
     lancamentos.remover_frequencia(db, frequencia_id)
     return Resposta[None](mensagem="Frequência removida.")
+
+
+# ---------- Registro semanal (presença e atividades) ----------
+
+
+@semanas.get("", response_model=RespostaPaginada[RegistroSemanalLeitura])
+def listar_semanas(db: Sessao, pagina: Pagina, inscricao_id: int | None = None):
+    itens, total = RegistroSemanalRepositorio(db).listar(pagina, {"inscricao_id": inscricao_id})
+    return resposta_paginada(RegistroSemanalLeitura, itens, total, pagina.pagina, pagina.limite)
+
+
+@semanas.get("/{registro_id}", response_model=Resposta[RegistroSemanalLeitura])
+def obter_semana(registro_id: int, db: Sessao):
+    registro = RegistroSemanalRepositorio(db).obter_ou_falhar(registro_id)
+    return resposta(RegistroSemanalLeitura, registro)
+
+
+@semanas.post(
+    "", response_model=Resposta[RegistroSemanalLeitura], status_code=status.HTTP_201_CREATED
+)
+def lancar_semana(dados: RegistroSemanalCriacao, db: Sessao):
+    registro = lancamentos.criar_semana(db, dados)
+    return resposta(RegistroSemanalLeitura, registro, "Semana registrada.")
+
+
+@semanas.patch("/{registro_id}", response_model=Resposta[RegistroSemanalLeitura])
+def atualizar_semana(registro_id: int, dados: RegistroSemanalAtualizacao, db: Sessao):
+    registro = lancamentos.atualizar_semana(db, registro_id, dados)
+    return resposta(RegistroSemanalLeitura, registro, "Semana atualizada.")
+
+
+@semanas.delete("/{registro_id}", response_model=Resposta[None])
+def remover_semana(registro_id: int, db: Sessao):
+    lancamentos.remover_semana(db, registro_id)
+    return Resposta[None](mensagem="Registro semanal removido.")
