@@ -1,7 +1,7 @@
 """perfil aluno: usuario.aluno_id e role 'aluno'
 
 Revision ID: c4e6a8b02d31
-Revises: 8223395c194d
+Revises: b3d5f7a91c20
 Create Date: 2026-10-30 20:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'c4e6a8b02d31'
-down_revision: Union[str, Sequence[str], None] = '8223395c194d'
+down_revision: Union[str, Sequence[str], None] = 'b3d5f7a91c20'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

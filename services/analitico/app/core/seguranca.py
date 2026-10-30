@@ -6,6 +6,7 @@ publicada pelo auth em /.well-known/jwks.json (buscada uma vez e guardada em cac
 Uso nas rotas:  usuario: Annotated[UsuarioAtual, Depends(usuario_atual)]
 """
 
+from collections.abc import Callable
 from functools import lru_cache
 from typing import Annotated
 
@@ -15,6 +16,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.core.excecoes import AcessoNegado
+from app.core.logs import identificar_usuario
 
 ALGORITMO = "RS256"
 EMISSOR = "simpa-auth"
@@ -65,6 +68,8 @@ def usuario_atual(
     dados, nao_autenticado = _decodificar(credenciais)
     if dados.get("role") not in ROLES or not str(dados["sub"]).isdigit():
         raise nao_autenticado
+
+    identificar_usuario(int(dados["sub"]))
     return UsuarioAtual(id=int(dados["sub"]), role=dados["role"], nome=dados.get("nome"))
 
 
@@ -91,3 +96,20 @@ def aluno_atual(
     ):
         raise nao_autenticado
     return AlunoAtual(id=int(dados["sub"]), aluno_id=aluno_id, nome=dados.get("nome"))
+
+
+def exigir_roles(*permitidos: str) -> Callable[[UsuarioAtual], UsuarioAtual]:
+    """Dependência que responde 403 se o perfil do token não estiver em `permitidos` (D03).
+
+    Uso:  @router.post("", dependencies=[Depends(exigir_roles("admin", "coordenador"))])
+    """
+    desconhecidos = set(permitidos) - ROLES
+    if desconhecidos:
+        raise ValueError(f"Perfis desconhecidos: {sorted(desconhecidos)}")
+
+    def verificar(usuario: Annotated[UsuarioAtual, Depends(usuario_atual)]) -> UsuarioAtual:
+        if usuario.role not in permitidos:
+            raise AcessoNegado("Seu perfil não tem permissão para esta ação.")
+        return usuario
+
+    return verificar

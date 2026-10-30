@@ -13,7 +13,19 @@ from contextvars import ContextVar
 
 from fastapi import FastAPI, Request
 
+from app.core import auditoria
+
 request_id_atual: ContextVar[str] = ContextVar("request_id", default="-")
+# Dicionário compartilhado com o middleware: a dependência de autenticação roda em outra
+# thread e, por isso, preenche o id do usuário aqui em vez de usar um ContextVar próprio.
+usuario_atual_info: ContextVar[dict] = ContextVar("usuario_info")
+
+
+def identificar_usuario(usuario_id: int) -> None:
+    """Chamado pela autenticação: o middleware grava este id na auditoria."""
+    info = usuario_atual_info.get(None)
+    if info is not None:
+        info["usuario_id"] = usuario_id
 
 
 class _FormatoJson(logging.Formatter):
@@ -52,6 +64,8 @@ def registrar_middleware_de_logs(app: FastAPI, logger: logging.Logger) -> None:
     async def _log_da_requisicao(request: Request, call_next):
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         token = request_id_atual.set(request_id)
+        info: dict = {"usuario_id": None}
+        token_info = usuario_atual_info.set(info)
         inicio = time.perf_counter()
         status_http = 500
         try:
@@ -67,10 +81,23 @@ def registrar_middleware_de_logs(app: FastAPI, logger: logging.Logger) -> None:
                     extra={
                         "dados": {
                             "metodo": request.method,
-                            "rota": request.url.path,
+                            "rota": auditoria.mascarar(request.url.path),
                             "status_http": status_http,
                             "tempo_ms": round((time.perf_counter() - inicio) * 1000),
                         }
                     },
                 )
+            if auditoria.deve_registrar(request.url.path):
+                registro = auditoria.montar_registro(
+                    correlation_id=request_id,
+                    usuario_id=info["usuario_id"],
+                    rota=request.url.path,
+                    metodo=request.method,
+                    status_http=status_http,
+                    ip_origem=request.headers.get("X-Real-IP")
+                    or (request.client.host if request.client else "-"),
+                    tempo_ms=round((time.perf_counter() - inicio) * 1000),
+                )
+                auditoria.enviar(registro)
+            usuario_atual_info.reset(token_info)
             request_id_atual.reset(token)

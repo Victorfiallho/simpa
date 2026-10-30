@@ -1,7 +1,7 @@
 """cria solicitacao_apoio e historico_apoio
 
 Revision ID: d5f7b9c13e42
-Revises: 4cb24d9aea17
+Revises: 8b2d4f6a1c75
 Create Date: 2026-10-30 20:30:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'd5f7b9c13e42'
-down_revision: Union[str, Sequence[str], None] = '4cb24d9aea17'
+down_revision: Union[str, Sequence[str], None] = '8b2d4f6a1c75'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -8,6 +8,15 @@ from app.models.avaliacao import Avaliacao
 from app.models.disciplina import Disciplina
 from app.models.frequencia import Frequencia
 from app.models.inscricao import Inscricao
+from app.models.registro_semanal import RegistroSemanal
 from app.models.turma import Turma
 
-__all__ = ["Aluno", "Avaliacao", "Disciplina", "Frequencia", "Inscricao", "Turma"]
+__all__ = [
+    "Aluno",
+    "Avaliacao",
+    "Disciplina",
+    "Frequencia",
+    "Inscricao",
+    "RegistroSemanal",
+    "Turma",
+]

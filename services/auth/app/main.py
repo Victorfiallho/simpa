@@ -1,9 +1,10 @@
 """Serviço auth: login, emissão de JWT, usuários e perfis (RF09, D03)."""
 
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,14 +12,16 @@ from app.core.config import get_settings
 from app.core.database import get_db, get_sessionmaker
 from app.core.excecoes import RecursoNaoEncontrado, registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
-from app.core.respostas import Resposta, resposta
-from app.core.seguranca import jwks
+from app.core.paginacao import Paginacao, paginacao
+from app.core.respostas import Resposta, RespostaPaginada, resposta, resposta_paginada
+from app.core.seguranca import exigir_roles, jwks
 from app.models import Usuario
-from app.schemas import Login, Token, UsuarioResumo
-from app.services import usuarios
+from app.schemas import Login, RegistroAuditoria, Token, UsuarioResumo
+from app.services import auditoria, usuarios
 
 logger = configurar_logs("auth")
 Sessao = Annotated[Session, Depends(get_db)]
+Pagina = Annotated[Paginacao, Depends(paginacao)]
 
 
 @asynccontextmanager
@@ -66,6 +69,44 @@ def login(dados: Login, db: Sessao):
         # Mensagem genérica: não revela se o erro foi no e-mail ou na senha (RF09 CA01).
         raise HTTPException(status_code=401, detail="E-mail ou senha inválidos.")
     return Resposta[Token](dados=token, mensagem="Login realizado.")
+
+
+@app.get(
+    "/auditoria",
+    response_model=RespostaPaginada[RegistroAuditoria],
+    tags=["Auditoria"],
+    dependencies=[Depends(exigir_roles("admin", "coordenador"))],
+)
+def listar_auditoria(
+    db: Sessao,
+    pagina: Pagina,
+    usuario_id: int | None = None,
+    status_http: Annotated[int | None, Query(ge=100, le=599)] = None,
+    classe_status: Annotated[
+        int | None, Query(ge=2, le=5, description="2, 4 ou 5 para 2xx, 4xx ou 5xx")
+    ] = None,
+    metodo_http: Annotated[str | None, Query(max_length=10)] = None,
+    busca: Annotated[
+        str | None,
+        Query(min_length=2, max_length=60, description="Parte da rota ou do correlation id"),
+    ] = None,
+    desde: datetime | None = None,
+    ate: datetime | None = None,
+):
+    """Trilha de auditoria das requisições (RF12). Só admin e coordenador. Mais recentes primeiro
+    com `ordenar_por=timestamp&ordem=desc`."""
+    itens, total = auditoria.listar_registros(
+        db,
+        pagina,
+        usuario_id=usuario_id,
+        status_http=status_http,
+        classe_status=classe_status,
+        metodo_http=metodo_http,
+        busca=busca,
+        desde=desde,
+        ate=ate,
+    )
+    return resposta_paginada(RegistroAuditoria, itens, total, pagina.pagina, pagina.limite)
 
 
 # ---------- Rotas internas (bloqueadas no gateway) ----------
