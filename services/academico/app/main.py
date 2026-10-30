@@ -30,6 +30,7 @@ for roteador in (
     lancamentos.inscricoes,
     lancamentos.avaliacoes,
     lancamentos.frequencias,
+    lancamentos.semanas,
 ):
     app.include_router(roteador, dependencies=autenticado)
 app.include_router(interna)
