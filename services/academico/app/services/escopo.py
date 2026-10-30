@@ -38,9 +38,7 @@ def condicao_por_inscricao(usuario: UsuarioAtual, coluna) -> list[ColumnElement[
     """Filtro para Avaliacao/Frequencia: inscrição de uma disciplina do professor."""
     if not restrito(usuario):
         return []
-    propria = select(Inscricao.id).where(
-        Inscricao.disciplina_id.in_(_ids_das_disciplinas(usuario))
-    )
+    propria = select(Inscricao.id).where(Inscricao.disciplina_id.in_(_ids_das_disciplinas(usuario)))
     return [coluna.in_(propria)]
 
 

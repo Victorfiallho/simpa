@@ -81,7 +81,7 @@ def test_professor_nao_altera_cadastros(
         inscricao=inscricao["id"],
     )
 
-    resposta = getattr(cliente, metodo)(caminho, json={} if metodo == "patch" else None)
+    resposta = cliente.request(metodo.upper(), caminho, json={} if metodo == "patch" else None)
 
     assert resposta.status_code == 403
     assert codigo(resposta) == "ACESSO_NEGADO"

@@ -39,7 +39,8 @@ def listar_inscricoes(
     status_: Annotated[StatusInscricao | None, Query(alias="status")] = None,
 ):
     itens, total = InscricaoRepositorio(db).listar(
-        pagina, {"aluno_id": aluno_id, "disciplina_id": disciplina_id, "status": status_},
+        pagina,
+        {"aluno_id": aluno_id, "disciplina_id": disciplina_id, "status": status_},
         escopo.condicao_inscricoes(usuario),
     )
     return resposta_paginada(InscricaoLeitura, itens, total, pagina.pagina, pagina.limite)
@@ -91,7 +92,8 @@ def listar_avaliacoes(
     periodo_avaliacao: str | None = None,
 ):
     itens, total = AvaliacaoRepositorio(db).listar(
-        pagina, {"inscricao_id": inscricao_id, "periodo_avaliacao": periodo_avaliacao},
+        pagina,
+        {"inscricao_id": inscricao_id, "periodo_avaliacao": periodo_avaliacao},
         escopo.condicao_por_inscricao(usuario, Avaliacao.inscricao_id),
     )
     return resposta_paginada(AvaliacaoLeitura, itens, total, pagina.pagina, pagina.limite)
@@ -136,7 +138,8 @@ def listar_frequencias(
     periodo_avaliacao: str | None = None,
 ):
     itens, total = FrequenciaRepositorio(db).listar(
-        pagina, {"inscricao_id": inscricao_id, "periodo_avaliacao": periodo_avaliacao},
+        pagina,
+        {"inscricao_id": inscricao_id, "periodo_avaliacao": periodo_avaliacao},
         escopo.condicao_por_inscricao(usuario, Frequencia.inscricao_id),
     )
     return resposta_paginada(FrequenciaLeitura, itens, total, pagina.pagina, pagina.limite)
