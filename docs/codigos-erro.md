@@ -60,3 +60,7 @@ Toda resposta da API tem o mesmo formato (RF10, RNF14). Em caso de erro, `status
 | 409 | `USUARIO_DUPLICADO` | Nome de usuário ou e-mail já cadastrado | RF09 |
 
 Para criar um código novo: crie a exceção com `codigo="..."` no service, acrescente uma linha aqui e um teste que confira o código.
+
+## Copiloto (analítico)
+
+O copiloto não tem códigos próprios: pergunta com menos de 2 ou mais de 300 caracteres, ou com campos extras, responde `422 VALIDACAO`. Uma pergunta que ele não entende **não é erro**: volta `200` com `intencao: "ajuda"` e as sugestões.
