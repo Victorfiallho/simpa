@@ -28,7 +28,7 @@ async def ciclo_de_vida(_app: FastAPI):
         if not settings.demo_senha:
             raise RuntimeError("USUARIOS_DEMO=true exige DEMO_SENHA no .env")
         with get_sessionmaker()() as db:
-            usuarios.garantir_usuarios_demo(db, settings.demo_senha)
+            usuarios.garantir_usuarios_demo(db, settings.demo_senha, settings.demo_aluno_id)
     yield
 
 

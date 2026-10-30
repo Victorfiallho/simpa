@@ -71,3 +71,11 @@ def test_token_invalido_responde_401(credenciais):
         seguranca.usuario_atual(credenciais)
 
     assert erro.value.status_code == 401
+
+
+def test_token_de_aluno_nao_entra_no_academico():
+    # O perfil aluno só usa as rotas /meu do analítico; o acadêmico recusa o token dele.
+    with pytest.raises(HTTPException) as erro:
+        seguranca.usuario_atual(_token(role="aluno", aluno_id=1))
+
+    assert erro.value.status_code == 401

@@ -107,3 +107,69 @@ def test_rota_interna_de_usuario(cliente):
     assert len(professores) == 3
     assert um["role"] == "professor"
     assert cliente.get("/internal/usuarios/999").status_code == 404
+
+
+# ---------- Perfil aluno (D03) ----------
+
+
+def test_usuario_aluno_leva_o_cadastro_no_token(cliente, sessoes):
+    with sessoes() as db:
+        usuarios.criar_usuario(db, "ana.aluna", "ana.aluna@aluno.dev", SENHA, "aluno", aluno_id=42)
+
+    resposta = entrar(cliente, "ana.aluna@aluno.dev", SENHA)
+
+    dados = resposta.json()["dados"]
+    assert dados["usuario"]["role"] == "aluno"
+    assert dados["usuario"]["aluno_id"] == 42
+    chave = jwt.PyJWK(cliente.get("/.well-known/jwks.json").json()["keys"][0]).key
+    token = jwt.decode(dados["access_token"], chave, algorithms=["RS256"], issuer="simpa-auth")
+    assert (token["role"], token["aluno_id"]) == ("aluno", 42)
+
+
+def test_token_dos_outros_perfis_nao_tem_aluno_id(cliente):
+    dados = entrar(cliente, "ana.prof@simpa.dev", SENHA).json()["dados"]
+
+    chave = jwt.PyJWK(cliente.get("/.well-known/jwks.json").json()["keys"][0]).key
+    token = jwt.decode(dados["access_token"], chave, algorithms=["RS256"], issuer="simpa-auth")
+    assert "aluno_id" not in token
+
+
+def test_aluno_sem_cadastro_e_recusado_pelo_banco(sessoes):
+    from sqlalchemy.exc import IntegrityError
+
+    with sessoes() as db, pytest.raises(IntegrityError):
+        usuarios.criar_usuario(db, "sem.cadastro", "sem@aluno.dev", SENHA, "aluno")
+
+
+def test_professor_com_aluno_id_e_recusado_pelo_banco(sessoes):
+    from sqlalchemy.exc import IntegrityError
+
+    with sessoes() as db, pytest.raises(IntegrityError):
+        usuarios.criar_usuario(db, "p", "p@simpa.dev", SENHA, "professor", aluno_id=1)
+
+
+def test_dois_usuarios_nao_dividem_o_mesmo_aluno(sessoes):
+    from sqlalchemy.exc import IntegrityError
+
+    with sessoes() as db:
+        usuarios.criar_usuario(db, "a1", "a1@aluno.dev", SENHA, "aluno", aluno_id=7)
+    with sessoes() as db, pytest.raises(IntegrityError):
+        usuarios.criar_usuario(db, "a2", "a2@aluno.dev", SENHA, "aluno", aluno_id=7)
+
+
+def test_usuario_aluno_demo_so_com_aluno_id(sessoes):
+    with sessoes() as db:
+        usuarios.garantir_usuarios_demo(db, SENHA)
+        assert db.query(Usuario).filter_by(role="aluno").count() == 0
+        usuarios.garantir_usuarios_demo(db, SENHA, aluno_id=5)
+        usuarios.garantir_usuarios_demo(db, SENHA, aluno_id=5)
+        assert db.query(Usuario).filter_by(role="aluno").count() == 1
+
+
+def test_rota_interna_de_professores_nao_lista_alunos(cliente, sessoes):
+    with sessoes() as db:
+        usuarios.criar_usuario(db, "ana.aluna", "ana.aluna@aluno.dev", SENHA, "aluno", aluno_id=42)
+
+    professores = cliente.get("/internal/usuarios", params={"role": "professor"}).json()["dados"]
+
+    assert {p["role"] for p in professores} == {"professor"}

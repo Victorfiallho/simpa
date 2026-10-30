@@ -19,6 +19,7 @@ class UsuarioResumo(BaseModel):
     nome_usuario: str
     role: str
     ativo: bool
+    aluno_id: int | None = None
 
 
 class Token(BaseModel):

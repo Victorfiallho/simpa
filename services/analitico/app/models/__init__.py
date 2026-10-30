@@ -3,6 +3,7 @@
 Todos os models precisam ser importados aqui: o Alembic depende disso para gerar as migrações.
 """
 
+from app.models.apoio import HistoricoApoio, SolicitacaoApoio
 from app.models.resultado_risco import ResultadoRisco
 
-__all__ = ["ResultadoRisco"]
+__all__ = ["HistoricoApoio", "ResultadoRisco", "SolicitacaoApoio"]

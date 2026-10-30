@@ -27,13 +27,20 @@ def autenticar(db: Session, email: str, senha: str) -> Token | None:
     if not senha_confere(senha, usuario.senha_hash) or not usuario.ativo:
         return None
     return Token(
-        access_token=criar_token(usuario.id, usuario.role, usuario.nome_usuario),
+        access_token=criar_token(usuario.id, usuario.role, usuario.nome_usuario, usuario.aluno_id),
         expira_em_minutos=get_settings().jwt_expira_minutos,
         usuario=UsuarioResumo.model_validate(usuario),
     )
 
 
-def criar_usuario(db: Session, nome_usuario: str, email: str, senha: str, role: str) -> Usuario:
+def criar_usuario(
+    db: Session,
+    nome_usuario: str,
+    email: str,
+    senha: str,
+    role: str,
+    aluno_id: int | None = None,
+) -> Usuario:
     existe = db.scalar(
         select(Usuario.id).where(
             (Usuario.nome_usuario == nome_usuario) | (func.lower(Usuario.email) == email.lower())
@@ -46,6 +53,7 @@ def criar_usuario(db: Session, nome_usuario: str, email: str, senha: str, role: 
         email=email.lower(),
         senha_hash=gerar_hash_senha(senha),
         role=role,
+        aluno_id=aluno_id,
     )
     db.add(usuario)
     db.commit()
@@ -61,11 +69,19 @@ USUARIOS_DEMO = [
 ]
 
 
-def garantir_usuarios_demo(db: Session, senha: str) -> None:
-    """Cria um usuário de cada perfil para a demonstração, se ainda não existirem."""
+def garantir_usuarios_demo(db: Session, senha: str, aluno_id: int | None = None) -> None:
+    """Cria um usuário de cada perfil para a demonstração, se ainda não existirem.
+
+    Com `aluno_id`, cria também o usuário `aluno.demo`, ligado a esse aluno do acadêmico.
+    """
     for nome_usuario, email, role in USUARIOS_DEMO:
         if db.scalar(select(Usuario.id).where(Usuario.nome_usuario == nome_usuario)) is None:
             criar_usuario(db, nome_usuario, email, senha, role)
             logger.info(
                 "usuario de demonstracao criado", extra={"dados": {"usuario": nome_usuario}}
             )
+    if aluno_id is not None and (
+        db.scalar(select(Usuario.id).where(Usuario.nome_usuario == "aluno.demo")) is None
+    ):
+        criar_usuario(db, "aluno.demo", "aluno.demo@simpa.dev", senha, "aluno", aluno_id)
+        logger.info("usuario de demonstracao criado", extra={"dados": {"usuario": "aluno.demo"}})
