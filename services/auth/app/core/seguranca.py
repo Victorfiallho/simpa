@@ -60,13 +60,19 @@ def jwks() -> dict[str, list[dict[str, Any]]]:
     return {"keys": [jwk]}
 
 
-def criar_token(usuario_id: int, role: str, nome: str | None = None) -> str:
-    """Token com o id do usuário (sub), o nome, o perfil (role, D03) e a expiração."""
+def criar_token(
+    usuario_id: int, role: str, nome: str | None = None, aluno_id: int | None = None
+) -> str:
+    """Token com o id do usuário (sub), o nome, o perfil (role, D03) e a expiração.
+
+    O perfil aluno leva também `aluno_id`, o cadastro dele no acadêmico.
+    """
     agora = datetime.now(UTC)
     payload = {
         "sub": str(usuario_id),
         "nome": nome,
         "role": role,
+        **({"aluno_id": aluno_id} if aluno_id is not None else {}),
         "iss": EMISSOR,
         "iat": agora,
         "exp": agora + timedelta(minutes=get_settings().jwt_expira_minutos),

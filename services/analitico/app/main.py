@@ -2,7 +2,7 @@
 
 from fastapi import Depends, FastAPI
 
-from app.api import alertas, cenarios, copiloto, rotas
+from app.api import alertas, apoio, cenarios, copiloto, rotas
 from app.core.config import get_settings
 from app.core.excecoes import registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
@@ -32,6 +32,10 @@ for roteador in (
     copiloto.router,
 ):
     app.include_router(roteador, dependencies=[Depends(usuario_atual)])
+
+# As rotas do aluno e do apoio fazem a própria checagem de perfil (aluno ou gestão).
+app.include_router(apoio.meu)
+app.include_router(apoio.atendimento)
 
 
 @app.get("/health", tags=["infra"])
