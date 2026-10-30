@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     chaves_dir: str = "chaves"
     jwt_expira_minutos: int = 60
 
+    # Bloqueio do login após erros seguidos no mesmo e-mail (RF09).
+    login_max_tentativas: int = 5
+    login_bloqueio_segundos: int = 60
+
     # Fila de auditoria: os serviços publicam `log.requisicao` e o worker grava no banco (RF12).
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
 
