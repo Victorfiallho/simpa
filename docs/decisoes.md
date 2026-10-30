@@ -33,6 +33,7 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
 | Lançar/editar notas e frequência | ✔ | | ✔ (só nas suas disciplinas) |
 | Consultar alunos, indicadores e risco | ✔ | ✔ | ✔ (só alunos das suas disciplinas) |
 | Exportar relatórios | ✔ | ✔ | |
+| Consultar a trilha de auditoria (`GET /auditoria`) | ✔ | ✔ | |
 | Reabrir turma/disciplina encerrada | ✔ | | |
 
 - **Consequência:** `Disciplina.professor_id` passa a guardar o id de um `Usuario`, e não mais texto livre. Como `Usuario` fica no serviço auth, esse id não é uma FK no banco (ver D13).
