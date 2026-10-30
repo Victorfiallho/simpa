@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core import auditoria
 from app.core.database import Base, get_db
 from app.core.excecoes import RegraDeNegocioViolada
 from app.core.seguranca import UsuarioAtual, usuario_atual
@@ -129,3 +130,11 @@ def inscricao(cliente, aluno, disciplina):
     return criar(
         cliente, "/inscricoes", {"aluno_id": aluno["id"], "disciplina_id": disciplina["id"]}
     )
+
+
+@pytest.fixture(autouse=True)
+def auditoria_enviada(monkeypatch):
+    """Registros de auditoria que iriam para o RabbitMQ; nenhum teste abre conexão."""
+    enviados: list[dict] = []
+    monkeypatch.setattr(auditoria, "enviar", enviados.append)
+    return enviados
