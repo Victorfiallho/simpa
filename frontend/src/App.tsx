@@ -14,13 +14,49 @@ import { Auditoria } from './paginas/Auditoria';
 import { Cenarios } from './paginas/Cenarios';
 import { Copiloto } from './paginas/Copiloto';
 import { Login } from './paginas/Login';
+import { MeuApoio } from './paginas/MeuApoio';
+import { MeuDesempenho } from './paginas/MeuDesempenho';
+import { MeuPerfil } from './paginas/MeuPerfil';
+import { Pendencias } from './paginas/Pendencias';
 import { Relatorios } from './paginas/Relatorios';
 import { VisaoGeral } from './paginas/VisaoGeral';
 import { useSessao } from './sessao';
 
 export function App() {
   const { usuario } = useSessao();
-  return usuario ? <Aplicacao /> : <Login />;
+  if (!usuario) return <Login />;
+  return usuario.role === 'aluno' ? <AplicacaoDoAluno /> : <Aplicacao />;
+}
+
+/** O aluno só vê o que é dele: não busca turmas nem painel geral (o servidor recusaria). */
+function AplicacaoDoAluno() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  const pagina = (titulo: string, conteudo: ReactNode) => (
+    <>
+      <header className="cabecalho">
+        <h1>{titulo}</h1>
+      </header>
+      <main className="painel">{conteudo}</main>
+    </>
+  );
+
+  return (
+    <div className="app">
+      <BarraLateral />
+      <div className="area">
+        <Routes>
+          <Route path="/" element={pagina('Meu desempenho', <MeuDesempenho />)} />
+          <Route path="/apoio" element={pagina('Pedir apoio', <MeuApoio />)} />
+          <Route path="/perfil" element={pagina('Meu perfil', <MeuPerfil />)} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </div>
+  );
 }
 
 function Aplicacao() {
@@ -99,7 +135,9 @@ function Aplicacao() {
             )}
           />
           <Route path="/copiloto" element={pagina('Copiloto', <Copiloto />)} />
+          <Route path="/pendencias" element={pagina('Pendências', <Pendencias />)} />
           <Route path="/auditoria" element={pagina('Auditoria', <Auditoria />)} />
+          <Route path="/perfil" element={pagina('Meu perfil', <MeuPerfil />)} />
           <Route
             path="/relatorios"
             element={pagina(
