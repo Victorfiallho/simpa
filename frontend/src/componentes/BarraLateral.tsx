@@ -3,10 +3,13 @@ import {
   Bot,
   ChartColumn,
   FileText,
+  Inbox,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   ScrollText,
   SlidersHorizontal,
+  UserRound,
   Users,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
@@ -26,10 +29,25 @@ const ITENS_DA_GESTAO = [
   { para: '/alertas', rotulo: 'Alertas', Icone: BellRing },
   { para: '/cenarios', rotulo: 'Cenários', Icone: SlidersHorizontal },
   { para: '/copiloto', rotulo: 'Copiloto', Icone: Bot },
+  { para: '/pendencias', rotulo: 'Pendências', Icone: Inbox },
   { para: '/auditoria', rotulo: 'Auditoria', Icone: ScrollText },
 ];
 
-const PERFIL = { admin: 'Administração', coordenador: 'Coordenação', professor: 'Professor' };
+const ITEM_PERFIL = { para: '/perfil', rotulo: 'Meu perfil', Icone: UserRound };
+
+// O aluno só tem as telas dele.
+const ITENS_DO_ALUNO = [
+  { para: '/', rotulo: 'Meu desempenho', Icone: LayoutDashboard },
+  { para: '/apoio', rotulo: 'Pedir apoio', Icone: LifeBuoy },
+  ITEM_PERFIL,
+];
+
+const PERFIL = {
+  admin: 'Administração',
+  coordenador: 'Coordenação',
+  professor: 'Professor',
+  aluno: 'Aluno',
+};
 
 /** Símbolo da logo (as três faixas), para fundos escuros e espaços pequenos. */
 function Simbolo() {
@@ -39,7 +57,10 @@ function Simbolo() {
 export function BarraLateral() {
   const { usuario, sair } = useSessao();
   const gestao = usuario?.role === 'admin' || usuario?.role === 'coordenador';
-  const itens = gestao ? [...ITENS, ...ITENS_DA_GESTAO] : ITENS;
+  const itens =
+    usuario?.role === 'aluno'
+      ? ITENS_DO_ALUNO
+      : [...ITENS, ...(gestao ? ITENS_DA_GESTAO : []), ITEM_PERFIL];
 
   return (
     <aside className="barra">
