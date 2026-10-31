@@ -15,8 +15,7 @@ from app.core.excecoes import AcessoNegado, RecursoNaoEncontrado, registrar_trat
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
 from app.core.paginacao import Paginacao, paginacao
 from app.core.respostas import Resposta, RespostaPaginada, resposta, resposta_paginada
-from app.core.seguranca import exigir_roles, jwks
-from app.core.sessao import UsuarioLogado, usuario_logado
+from app.core.seguranca import UsuarioAtual, exigir_roles, jwks, usuario_atual
 from app.models import Usuario
 from app.schemas import Login, RegistroAuditoria, Token, UsuarioResumo
 from app.schemas_perfil import PerfilAtualizacao, PerfilSaida
@@ -26,7 +25,7 @@ from app.services.perfil import TAMANHO_MAXIMO_FOTO
 logger = configurar_logs("auth")
 Sessao = Annotated[Session, Depends(get_db)]
 Pagina = Annotated[Paginacao, Depends(paginacao)]
-Logado = Annotated[UsuarioLogado, Depends(usuario_logado)]
+Logado = Annotated[UsuarioAtual, Depends(usuario_atual)]
 
 
 @asynccontextmanager
