@@ -11,6 +11,8 @@ Intencao = Literal[
     "monitoria",
     "contagem",
     "situacao",
+    "alertas",
+    "projecao",
     "fora_do_escopo",
     "desconhecido",
     "ajuda",

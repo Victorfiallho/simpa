@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.clientes import academico
 from app.core.database import get_db
-from app.core.excecoes import AcessoNegado, RecursoNaoEncontrado
+from app.core.excecoes import RecursoNaoEncontrado
 from app.core.respostas import Resposta
-from app.core.seguranca import UsuarioAtual, usuario_atual
+from app.core.seguranca import UsuarioAtual, exigir_roles
 from app.schemas.alertas import (
     AcompanhamentoEntrada,
     AcompanhamentoSaida,
@@ -25,16 +25,7 @@ from app.schemas.alertas import (
 )
 from app.services import acompanhamento, alertas
 
-PERFIS = {"admin", "coordenador"}
-
-
-def gestor(usuario: Annotated[UsuarioAtual, Depends(usuario_atual)]) -> UsuarioAtual:
-    if usuario.role not in PERFIS:
-        raise AcessoNegado("Seu perfil não tem permissão para esta ação.")
-    return usuario
-
-
-Gestor = Annotated[UsuarioAtual, Depends(gestor)]
+Gestor = Annotated[UsuarioAtual, Depends(exigir_roles("admin", "coordenador"))]
 Sessao = Annotated[Session, Depends(get_db)]
 
 alerta = APIRouter(prefix="/alertas", tags=["Alertas"])
