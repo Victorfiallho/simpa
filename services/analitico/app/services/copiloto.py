@@ -10,8 +10,12 @@ import unicodedata
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from sqlalchemy.orm import Session
+
 from app.clientes.academico import Inscricao
 from app.schemas.copiloto import ItemResposta, RespostaCopiloto, SecaoResumo
+from app.services.alertas import montar_alertas
+from app.services.cenarios import Regras, montar_projecao
 from app.services.painel import InscricaoCalculada, calcular, que_contam
 from app.services.regras import FREQUENCIA_MINIMA, formatar
 
@@ -22,12 +26,15 @@ SUGESTOES = [
     "Gere um resumo do desempenho da turma para a reunião de colegiado",
     "Quem tirou abaixo de 5 em Estatística e tem presença menor que 70%?",
     "Quantos alunos estão em risco?",
+    "Quais alertas estão pendentes?",
+    "Quantos alunos podem ficar em recuperação?",
 ]
 AJUDA = (
     "Não entendi bem a pergunta. Posso ajudar com: alunos que precisam de monitoria ou apoio "
     "urgente; filtros por nota e frequência, por exemplo “abaixo de 5 e presença menor que "
-    "70%”; a situação de um aluno pelo nome ou pela matrícula; contagens por situação; e um "
-    "resumo do desempenho para o colegiado. Você pode citar a disciplina ou a turma."
+    "70%”; a situação de um aluno pelo nome ou pela matrícula; contagens por situação; "
+    "alertas precoces; projeção de aprovação e recuperação; e um resumo do desempenho para "
+    "o colegiado. Você pode citar a disciplina ou a turma."
 )
 
 
@@ -72,6 +79,10 @@ class Consulta:
     frequencia: Condicao | None = None
     intencao: str | None = None
     aluno: "Inscricao | None" = field(default=None, repr=False)
+
+    @property
+    def n_pendentes(self) -> bool:
+        return "pendente" in self.n
 
     @property
     def recorte(self) -> str:
@@ -164,10 +175,11 @@ def interpretar(pergunta: str, inscricoes: list[Inscricao]) -> Consulta:
         consulta.intencao = "filtro"
     elif re.search(r"monitoria|urgen|precisam de apoio|precisam de ajuda|priorid", n):
         consulta.intencao = "monitoria"
-    elif re.search(
-        r"alerta|abandono|queda|desist|tranc|evasao|projec|retenc|aprovad|aprovac|reprov|recuperac|passar|passam",
-        n,
-    ):
+    elif re.search(r"alerta|abandono|queda", n):
+        consulta.intencao = "alertas"
+    elif re.search(r"projec|retenc|aprovad|aprovac|reprov|recuperac|passar|passam", n):
+        consulta.intencao = "projecao"
+    elif re.search(r"desist|tranc|evasao", n):
         consulta.intencao = "fora_do_escopo"
     elif re.search(r"quantos|quantas|quantidade|total|numero de", n):
         consulta.intencao = "contagem"
@@ -375,6 +387,73 @@ def _contagem(inscricoes: list[Inscricao], c: Consulta) -> RespostaCopiloto:
     return _resposta(c, texto)
 
 
+def _do_recorte(inscricoes: list[Inscricao], c: Consulta) -> list[Inscricao]:
+    return [
+        i
+        for i in inscricoes
+        if (c.disciplina_id is None or i.disciplina.id == c.disciplina_id)
+        and (c.turma_id is None or i.disciplina.turma.id == c.turma_id)
+    ]
+
+
+def _alertas(db: Session, inscricoes: list[Inscricao], c: Consulta) -> RespostaCopiloto:
+    ativos = [
+        a
+        for a in montar_alertas(db, _do_recorte(inscricoes, c))
+        if a.estado != "encerrado" and (not c.n_pendentes or a.estado == "pendente")
+    ]
+    for palavra, tipo in (
+        ("abandono", "abandono"),
+        ("queda", "queda"),
+        ("frequencia", "frequencia"),
+    ):
+        if palavra in c.n:
+            ativos = [a for a in ativos if a.tipo == tipo]
+            break
+    graves = sum(1 for a in ativos if a.nivel == "alto")
+    por_tipo = {
+        t: sum(1 for a in ativos if a.tipo == t) for t in ("abandono", "queda", "frequencia")
+    }
+    situacao = "pendentes" if c.n_pendentes else "ativos"
+    texto = (
+        f"Em {c.recorte} há {len(ativos)} alerta(s) {situacao}: {por_tipo['abandono']} de "
+        f"abandono, {por_tipo['queda']} de queda e {por_tipo['frequencia']} de frequência; "
+        f"{graves} com gravidade alta."
+    )
+    itens = [
+        ItemResposta(
+            aluno_id=a.aluno_id,
+            aluno_nome=a.aluno_nome,
+            matricula=a.matricula,
+            detalhe=f"{a.titulo} · {a.disciplina_nome}",
+        )
+        for a in ativos[:LIMITE_MONITORIA]
+    ]
+    return _resposta(c, texto, itens=itens, total_itens=len(ativos))
+
+
+def _projecao(inscricoes: list[Inscricao], c: Consulta) -> RespostaCopiloto:
+    regras = Regras()
+    p = montar_projecao(_do_recorte(inscricoes, c), regras, "n1", limite_metas=LIMITE_MONITORIA)
+    k = p.contagem
+    retencao = "—" if p.retencao_percentual is None else f"{formatar(p.retencao_percentual)}%"
+    texto = (
+        f"Com as regras padrão (aprovação {formatar(regras.aprovacao)}, recuperação "
+        f"{formatar(regras.recuperacao)}, final {formatar(regras.final)}) e só a N1, em "
+        f"{c.recorte}: {k.direta} aprovam direto, {k.recuperacao} ficam em recuperação, "
+        f"{k.rep_nota} reprovam por nota e {k.rep_freq} por frequência, em "
+        f"{p.inscricoes_projetadas} inscrição(ões) com dados. Retenção projetada: {retencao}. "
+        "Ajuste as regras na aba Cenários."
+    )
+    itens = [
+        ItemResposta(
+            aluno_id=m.aluno_id, aluno_nome=m.aluno_nome, matricula=m.matricula, detalhe=m.meta
+        )
+        for m in p.metas
+    ]
+    return _resposta(c, texto, itens=itens, total_itens=p.total_metas)
+
+
 def _media_simples(valores: list[Decimal]) -> Decimal | None:
     return sum(valores, Decimal(0)) / len(valores) if valores else None
 
@@ -501,7 +580,7 @@ def _resumo(inscricoes: list[Inscricao], c: Consulta) -> RespostaCopiloto:
     )
 
 
-def responder(pergunta: str, inscricoes: list[Inscricao]) -> RespostaCopiloto:
+def responder(pergunta: str, inscricoes: list[Inscricao], db: Session) -> RespostaCopiloto:
     consulta = interpretar(pergunta, inscricoes)
     if consulta.desconhecido:
         consulta.intencao = "desconhecido"
@@ -519,12 +598,15 @@ def responder(pergunta: str, inscricoes: list[Inscricao]) -> RespostaCopiloto:
         "monitoria": _monitoria,
         "contagem": _contagem,
         "situacao": _situacao,
+        "projecao": _projecao,
     }
+    if consulta.intencao == "alertas":
+        return _alertas(db, inscricoes, consulta)
     if consulta.intencao == "fora_do_escopo":
         return _resposta(
             consulta,
-            "Ainda não respondo sobre alertas precoces e projeção de aprovação por aqui. "
-            "Use as abas Alertas e Cenários.",
+            "Ainda não tenho dados de desistência, trancamento ou evasão. Para sinais de "
+            "abandono, pergunte por alertas ou use a aba Alertas.",
             sugestoes=SUGESTOES,
         )
     if consulta.intencao not in respondedores:

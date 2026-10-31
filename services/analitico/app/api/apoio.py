@@ -10,9 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.clientes import academico
 from app.core.database import get_db
-from app.core.excecoes import AcessoNegado
 from app.core.respostas import Resposta
-from app.core.seguranca import AlunoAtual, UsuarioAtual, aluno_atual, usuario_atual
+from app.core.seguranca import AlunoAtual, UsuarioAtual, aluno_atual, exigir_roles
 from app.schemas.analitico import Painel
 from app.schemas.apoio import (
     EstadoApoio,
@@ -29,13 +28,7 @@ Sessao = Annotated[Session, Depends(get_db)]
 Aluno = Annotated[AlunoAtual, Depends(aluno_atual)]
 
 
-def gestor(usuario: Annotated[UsuarioAtual, Depends(usuario_atual)]) -> UsuarioAtual:
-    if usuario.role not in {"admin", "coordenador"}:
-        raise AcessoNegado("Seu perfil não tem permissão para esta ação.")
-    return usuario
-
-
-Gestor = Annotated[UsuarioAtual, Depends(gestor)]
+Gestor = Annotated[UsuarioAtual, Depends(exigir_roles("admin", "coordenador"))]
 
 meu = APIRouter(prefix="/meu", tags=["Aluno"])
 atendimento = APIRouter(prefix="/apoio", tags=["Apoio"])

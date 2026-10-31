@@ -2,8 +2,12 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.clientes import academico
+from app.core.database import Base, get_db
 from app.core.seguranca import UsuarioAtual, usuario_atual
 from app.main import app
 from app.services.copiloto import condicao, interpretar, normalizar
@@ -32,10 +36,22 @@ def cenario():
 def api(monkeypatch):
     estado = {"papel": "coordenador"}
     monkeypatch.setattr(academico, "buscar_inscricoes", lambda **_: cenario())
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    sessoes = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    def _db():
+        with sessoes() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = _db
     app.dependency_overrides[usuario_atual] = lambda: UsuarioAtual(id=1, role=estado["papel"])
     estado["http"] = TestClient(app)
     yield estado
     app.dependency_overrides.clear()
+    engine.dispose()
 
 
 def perguntar(api, texto):
@@ -78,8 +94,9 @@ def test_condicoes_numericas(texto, palavras, esperado):
         ("presença menor que 70%", "filtro"),
         ("Quantos alunos estão em risco?", "contagem"),
         ("Como está o desempenho da turma?", "situacao"),
-        ("Quais alertas de abandono existem?", "fora_do_escopo"),
-        ("Quantos podem ficar em recuperação?", "fora_do_escopo"),
+        ("Quais alertas de abandono existem?", "alertas"),
+        ("Quantos podem ficar em recuperação?", "projecao"),
+        ("Quantos desistiram do curso?", "fora_do_escopo"),
         ("bom dia", None),
     ],
 )
@@ -196,8 +213,33 @@ def test_nao_entendeu_oferece_ajuda(api):
     assert dados["sugestoes"]
 
 
-def test_alertas_e_projecao_ainda_nao_sao_respondidos_aqui(api):
-    dados = perguntar(api, "quais alunos têm alerta de abandono?")
+def test_responde_sobre_alertas_ativos(api):
+    dados = perguntar(api, "quais alertas estão pendentes?")
+
+    assert dados["intencao"] == "alertas"
+    assert dados["total_itens"] == len(dados["itens"]) >= 1
+    assert "Bruno Costa" in {i["aluno_nome"] for i in dados["itens"]}
+    assert "alerta(s) pendentes" in dados["texto"]
+
+
+def test_alertas_filtra_pelo_tipo_citado(api):
+    dados = perguntar(api, "alertas de frequência")
+
+    assert dados["total_itens"] >= 1
+    assert all("Frequência" in i["detalhe"] for i in dados["itens"])
+
+
+def test_responde_a_projecao_com_as_regras_padrao(api):
+    dados = perguntar(api, "quantos alunos podem ficar em recuperação?")
+
+    assert dados["intencao"] == "projecao"
+    assert "regras padrão" in dados["texto"]
+    assert "Retenção projetada" in dados["texto"]
+    assert all(i["detalhe"] for i in dados["itens"])
+
+
+def test_desistencia_continua_fora_do_escopo(api):
+    dados = perguntar(api, "quantos desistiram?")
 
     assert dados["intencao"] == "fora_do_escopo"
 
@@ -228,7 +270,7 @@ def test_so_gestao_usa_o_copiloto(api):
 def test_sugestoes(api):
     sugestoes = api["http"].get("/copiloto/sugestoes").json()["dados"]
 
-    assert len(sugestoes) == 4
+    assert len(sugestoes) == 6
 
 
 def test_pergunta_com_html_nao_e_repetida_como_html(api):

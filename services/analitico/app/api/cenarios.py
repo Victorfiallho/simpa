@@ -9,21 +9,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.clientes import academico
-from app.core.excecoes import AcessoNegado
 from app.core.respostas import Resposta
-from app.core.seguranca import UsuarioAtual, usuario_atual
+from app.core.seguranca import exigir_roles
 from app.schemas.cenarios import MargemSaida, Projecao
 from app.services import cenarios
 from app.services.cenarios import Base, Regras
-
-PERFIS = {"admin", "coordenador"}
-
-
-def gestor(usuario: Annotated[UsuarioAtual, Depends(usuario_atual)]) -> UsuarioAtual:
-    if usuario.role not in PERFIS:
-        raise AcessoNegado("Seu perfil não tem permissão para esta ação.")
-    return usuario
-
 
 Nota = Annotated[Decimal, Query(ge=0, le=10, max_digits=4, decimal_places=2)]
 BaseQuery = Annotated[
@@ -31,7 +21,11 @@ BaseQuery = Annotated[
     Query(description="n1: só a N1 conta e a N2 é estimada; atual: usa N1 e N2 lançadas"),
 ]
 
-cenario = APIRouter(prefix="/cenarios", tags=["Cenários"], dependencies=[Depends(gestor)])
+cenario = APIRouter(
+    prefix="/cenarios",
+    tags=["Cenários"],
+    dependencies=[Depends(exigir_roles("admin", "coordenador"))],
+)
 
 
 def _regras(aprovacao: Decimal, recuperacao: Decimal, final: Decimal) -> Regras:
