@@ -4,6 +4,7 @@ import { api } from '../api/cliente';
 import type { Perfil, Resposta } from '../api/tipos';
 import { useDados } from '../api/useDados';
 import { Conteudo } from '../componentes/Conteudo';
+import { FotoDePerfil } from '../componentes/FotoDePerfil';
 
 const CAMPOS = [
   ['nome_completo', 'Nome completo'],
@@ -60,6 +61,7 @@ function Formulario({ perfil, aoSalvar }: { perfil: Perfil; aoSalvar: () => void
           </p>
         </div>
       </div>
+      <FotoDePerfil perfil={perfil} aoMudar={aoSalvar} />
       <form className="coluna" onSubmit={salvar}>
         {CAMPOS.map(([campo, rotulo]) => (
           <label key={campo} className="campo">
