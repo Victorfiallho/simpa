@@ -50,7 +50,9 @@ async function requisitar(caminho: string, opcoes: RequestInit = {}): Promise<Re
   const sessao = lerSessao();
   const cabecalhos = new Headers(opcoes.headers);
   if (sessao) cabecalhos.set('Authorization', `Bearer ${sessao.token}`);
-  if (opcoes.body) cabecalhos.set('Content-Type', 'application/json');
+  if (opcoes.body && !cabecalhos.has('Content-Type')) {
+    cabecalhos.set('Content-Type', 'application/json');
+  }
 
   let resposta: Response;
   try {
@@ -94,6 +96,11 @@ export async function entrar(email: string, senha: string): Promise<Sessao> {
 
 export function sair() {
   gravarSessao(null);
+}
+
+/** Busca uma imagem autenticada (a foto de perfil) como Blob. */
+export async function buscarImagem(caminho: string): Promise<Blob> {
+  return (await requisitar(caminho)).blob();
 }
 
 /** Baixa um arquivo autenticado (relatórios) e entrega ao navegador. */
