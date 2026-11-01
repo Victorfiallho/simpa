@@ -1511,3 +1511,27 @@ p {
 .segmentos button:disabled {
   opacity: 0.5;
 }
+
+.foto-perfil {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.foto-perfil img,
+.foto-vazia {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.foto-vazia {
+  display: grid;
+  place-items: center;
+  background: var(--moldura);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
+}
