@@ -1,7 +1,7 @@
 // Tipos das respostas da API. Decimais chegam como texto ("7.50") para não perder precisão (D18).
 
 export type Situacao = 'em_risco' | 'atencao' | 'sem_risco' | 'indeterminado';
-export type Role = 'admin' | 'coordenador' | 'professor';
+export type Role = 'admin' | 'coordenador' | 'professor' | 'aluno';
 export type Decimal = string | null;
 
 export interface Resposta<T> {
@@ -288,4 +288,38 @@ export interface RespostaCopiloto {
   secoes: { titulo: string; linhas: string[] }[];
   texto_completo: string | null;
   sugestoes: string[];
+}
+
+export type EstadoApoio = 'recebida' | 'atendimento' | 'concluida';
+
+export interface Solicitacao {
+  id: number;
+  aluno_id: number;
+  disciplina_id: number | null;
+  motivo: string;
+  texto: string;
+  estado: EstadoApoio;
+  criada_em: string;
+  atualizada_em: string;
+  historico: { estado: EstadoApoio; em: string }[];
+}
+
+export interface SolicitacaoDaCoordenacao extends Solicitacao {
+  aluno_nome: string | null;
+  matricula: string | null;
+  disciplina_nome: string | null;
+}
+
+export interface Perfil {
+  usuario_id: number;
+  nome_usuario: string;
+  role: Role;
+  aluno_id: number | null;
+  nome_completo: string | null;
+  telefone: string | null;
+  email_contato: string | null;
+  cidade: string | null;
+  uf: string | null;
+  tem_foto: boolean;
+  preenchimento_percentual: number;
 }

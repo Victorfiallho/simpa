@@ -97,7 +97,7 @@ def senha_confere(senha: str, senha_hash: str) -> bool:
 
 # ---------- Validação do token nas rotas protegidas do próprio auth ----------
 
-ROLES = {"admin", "coordenador", "professor"}
+ROLES = {"admin", "coordenador", "professor", "aluno"}
 _bearer = HTTPBearer(auto_error=False)
 
 
