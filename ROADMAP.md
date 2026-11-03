@@ -206,9 +206,9 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] Revisar se algum painel expõe CPF ou e-mail sem necessidade: CPF só sai mascarado; o analítico só leva e-mail mascarado nos relatórios (testado)
 
 ### 3.4 Qualidade e desempenho — RNF03, RNF07, RNF10
-- [ ] Documentar no OpenAPI as respostas 200, 201, 400, 401, 404 e 500 de cada rota
-- [ ] Medir cobertura com `pytest-cov` e mirar nos services de estatística e risco
-- [ ] Testes de contrato das principais rotas
+- [x] Documentar no OpenAPI as respostas de cada rota: 400, 401, 403, 404, 422 e 500 no envelope `ErroPadrao` (`core/openapi.py`)
+- [x] Medir cobertura com `pytest-cov` (auth 90%, acadêmico 87%, analítico 95%); o CI exige 80% por serviço
+- [x] Testes de contrato das principais rotas: `tests/test_contrato.py` de cada serviço
 - [ ] Índices nas FKs e colunas de filtro; medir se listagens paginadas ficam abaixo de 300 ms
 - [ ] Refatoração final guiada pelo ruff e pela revisão em grupo
 
