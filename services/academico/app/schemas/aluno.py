@@ -1,15 +1,20 @@
 from datetime import date
 from typing import Annotated, Literal
 
-from pydantic import EmailStr, StringConstraints, field_serializer, field_validator
+from pydantic import AfterValidator, EmailStr, StringConstraints, field_serializer, field_validator
 
+from app.core.entradas import texto_seguro
 from app.schemas.base import CPF, Entrada, Saida, Texto, mascarar_cpf
 from app.schemas.inscricao import InscricaoDetalhada
 
 StatusAluno = Literal["ativo", "inativo", "transferido", "concluido", "evadido"]
 Matricula = Annotated[str, StringConstraints(pattern=r"^\d{4,20}$")]
-Telefone = Annotated[str, StringConstraints(min_length=8, max_length=20)]
-NomeCompleto = Annotated[str, StringConstraints(min_length=3, max_length=150)]
+Telefone = Annotated[
+    str, StringConstraints(min_length=8, max_length=20), AfterValidator(texto_seguro)
+]
+NomeCompleto = Annotated[
+    str, StringConstraints(min_length=3, max_length=150), AfterValidator(texto_seguro)
+]
 
 
 def _nao_futura(valor: date | None) -> date | None:

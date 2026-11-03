@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db, get_sessionmaker
+from app.core.entradas import sem_parametros_repetidos
 from app.core.excecoes import AcessoNegado, RecursoNaoEncontrado, registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
 from app.core.paginacao import Paginacao, paginacao
@@ -43,6 +44,7 @@ app = FastAPI(
     title="SIMPA — Auth",
     description="Autenticação, usuários e perfis de acesso.",
     root_path=get_settings().root_path,
+    dependencies=[Depends(sem_parametros_repetidos)],
     lifespan=ciclo_de_vida,
 )
 registrar_middleware_de_logs(app, logger)

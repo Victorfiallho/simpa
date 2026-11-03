@@ -6,6 +6,8 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
+from app.core.entradas import texto_seguro
+
 
 class Entrada(BaseModel):
     """Schema de entrada: rejeita campos desconhecidos e tira espaços das pontas."""
@@ -19,10 +21,14 @@ class Saida(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-Texto = Annotated[str, StringConstraints(min_length=1, max_length=120)]
+Texto = Annotated[
+    str, StringConstraints(min_length=1, max_length=120), AfterValidator(texto_seguro)
+]
 PeriodoLetivo = Annotated[str, StringConstraints(pattern=r"^\d{4}\.[12]$")]
 PeriodoAvaliacao = Annotated[str, StringConstraints(pattern=r"^N[1-4]$")]
-Codigo = Annotated[str, StringConstraints(min_length=1, max_length=20)]
+Codigo = Annotated[
+    str, StringConstraints(min_length=1, max_length=20), AfterValidator(texto_seguro)
+]
 
 
 def cpf_valido(valor: str) -> str:

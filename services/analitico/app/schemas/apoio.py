@@ -3,7 +3,9 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
+
+from app.core.entradas import texto_seguro
 
 EstadoApoio = Literal["recebida", "atendimento", "concluida"]
 
@@ -13,8 +15,10 @@ class SolicitacaoEntrada(BaseModel):
 
     # Nulo = pedido geral, sobre nenhuma disciplina específica.
     disciplina_id: int | None = None
-    motivo: Annotated[str, StringConstraints(max_length=60)]
-    texto: Annotated[str, StringConstraints(min_length=3, max_length=200)]
+    motivo: Annotated[str, StringConstraints(max_length=60), AfterValidator(texto_seguro)]
+    texto: Annotated[
+        str, StringConstraints(min_length=3, max_length=200), AfterValidator(texto_seguro)
+    ]
 
 
 class EstadoEntrada(BaseModel):

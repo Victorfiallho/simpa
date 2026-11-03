@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI
 from app.api import cadastros, lancamentos
 from app.api.interna import interna
 from app.core.config import get_settings
+from app.core.entradas import sem_parametros_repetidos
 from app.core.excecoes import registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
 from app.core.seguranca import usuario_atual
@@ -18,6 +19,7 @@ app = FastAPI(
         "Todas as rotas exigem o token do serviço auth (botão **Authorize**)."
     ),
     root_path=get_settings().root_path,
+    dependencies=[Depends(sem_parametros_repetidos)],
 )
 registrar_middleware_de_logs(app, logger)
 registrar_tratadores(app, logger)
