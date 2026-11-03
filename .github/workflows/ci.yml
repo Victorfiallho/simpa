@@ -25,7 +25,7 @@ jobs:
         run: |
           for servico in auth academico analitico; do
             echo "::group::$servico"
-            (cd "services/$servico" && pytest -q) || exit 1
+            (cd "services/$servico" && pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=80) || exit 1
             echo "::endgroup::"
           done
 

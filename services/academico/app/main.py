@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.entradas import sem_parametros_repetidos
 from app.core.excecoes import registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
+from app.core.openapi import documentar_erros
 from app.core.seguranca import usuario_atual
 
 logger = configurar_logs("academico")
@@ -23,6 +24,7 @@ app = FastAPI(
 )
 registrar_middleware_de_logs(app, logger)
 registrar_tratadores(app, logger)
+documentar_erros(app)
 
 autenticado = [Depends(usuario_atual)]
 for roteador in (
