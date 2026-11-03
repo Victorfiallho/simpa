@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query, status
 from sqlalchemy import or_
 
 from app.api.dependencias import EXIGE_GESTOR, Gestor, Pagina, Sessao, Usuario
+from app.core.entradas import escapar_like
 from app.core.respostas import Resposta, RespostaPaginada, resposta, resposta_paginada
 from app.models import Aluno
 from app.repositories.academico import AlunoRepositorio, DisciplinaRepositorio, TurmaRepositorio
@@ -148,8 +149,13 @@ def listar_alunos(
 ):
     condicoes = escopo.condicao_alunos(usuario, Aluno.id)
     if busca:
-        termo = f"%{busca}%"
-        condicoes.append(or_(Aluno.nome_completo.ilike(termo), Aluno.matricula.ilike(termo)))
+        termo = f"%{escapar_like(busca)}%"
+        condicoes.append(
+            or_(
+                Aluno.nome_completo.ilike(termo, escape="\\"),
+                Aluno.matricula.ilike(termo, escape="\\"),
+            )
+        )
     itens, total = AlunoRepositorio(db).listar(
         pagina, {"turma_id": turma_id, "status": status_}, condicoes
     )
