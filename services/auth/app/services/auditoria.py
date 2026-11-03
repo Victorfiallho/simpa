@@ -7,6 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.entradas import escapar_like
 from app.core.excecoes import RegraDeNegocioViolada
 from app.core.paginacao import Paginacao
 from app.models import LogRequisicao
@@ -77,9 +78,12 @@ def listar_registros(
     if metodo_http:
         condicoes.append(LogRequisicao.metodo_http == metodo_http.upper())
     if busca:
-        termo = f"%{busca}%"
+        termo = f"%{escapar_like(busca)}%"
         condicoes.append(
-            or_(LogRequisicao.rota.ilike(termo), LogRequisicao.correlation_id.ilike(termo))
+            or_(
+                LogRequisicao.rota.ilike(termo, escape="\\"),
+                LogRequisicao.correlation_id.ilike(termo, escape="\\"),
+            )
         )
     if desde is not None:
         condicoes.append(LogRequisicao.timestamp >= desde)

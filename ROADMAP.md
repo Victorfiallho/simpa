@@ -199,11 +199,11 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] Nunca registrar senha, token ou CPF completo; testes automatizados em `tests/test_auditoria.py` de cada serviço
 
 ### 3.3 Segurança de entrada — RNF15, RNF04
-- [ ] Testes de SQL Injection (o ORM protege, mas o teste comprova)
-- [ ] Sanitização contra XSS em campos de texto
-- [ ] Proteção contra *Parameter Pollution* (parâmetros repetidos na query)
+- [x] Testes de SQL Injection (o ORM protege, mas o teste comprova): `tests/test_seguranca_entradas.py` de cada serviço
+- [x] Sanitização contra XSS em campos de texto: `<`, `>` e caracteres de controle são recusados (`core/entradas.py`)
+- [x] Proteção contra *Parameter Pollution*: parâmetro de query repetido responde 400 `PARAMETRO_REPETIDO`
 - [ ] CORS: com o front e as APIs atrás do mesmo gateway, não é preciso liberar outras origens; manter assim
-- [ ] Revisar se algum painel expõe CPF ou e-mail sem necessidade
+- [x] Revisar se algum painel expõe CPF ou e-mail sem necessidade: CPF só sai mascarado; o analítico só leva e-mail mascarado nos relatórios (testado)
 
 ### 3.4 Qualidade e desempenho — RNF03, RNF07, RNF10
 - [ ] Documentar no OpenAPI as respostas 200, 201, 400, 401, 404 e 500 de cada rota

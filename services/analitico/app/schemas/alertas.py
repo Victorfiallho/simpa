@@ -3,7 +3,9 @@
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
+
+from app.core.entradas import texto_seguro
 
 TipoAlerta = Literal["queda", "frequencia", "abandono"]
 NivelAlerta = Literal["atencao", "alto"]
@@ -58,7 +60,9 @@ class AcompanhamentoEntrada(BaseModel):
     tipo: TipoAcompanhamento
     data: date
     responsavel: Annotated[str, StringConstraints(min_length=2, max_length=60)] | None = None
-    observacao: Annotated[str, StringConstraints(min_length=3, max_length=200)]
+    observacao: Annotated[
+        str, StringConstraints(min_length=3, max_length=200), AfterValidator(texto_seguro)
+    ]
     revisao: date | None = None
     visivel_ao_aluno: bool = False
 
