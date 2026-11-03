@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, Numeric, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, Index, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -20,11 +20,13 @@ class ResultadoRisco(Base):
         CheckConstraint(
             f"status IN ({', '.join(repr(s) for s in STATUS_RISCO)})", name="status_valido"
         ),
+        # Atende "última linha da inscrição" e o histórico: WHERE inscricao_id ORDER BY id DESC.
+        Index("ix_resultado_risco_inscricao_id_id", "inscricao_id", "id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Id de uma Inscricao do serviço acadêmico. Não é FK: mora em outro banco (D13).
-    inscricao_id: Mapped[int] = mapped_column(index=True)
+    inscricao_id: Mapped[int]
     media_final: Mapped[Decimal | None] = mapped_column(Numeric(4, 2))
     # Numeric(5, 2): 100,00% tem cinco dígitos (D16).
     frequencia_final: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
