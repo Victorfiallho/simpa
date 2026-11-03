@@ -14,6 +14,7 @@ from app.core.database import get_db, get_sessionmaker
 from app.core.entradas import sem_parametros_repetidos
 from app.core.excecoes import AcessoNegado, RecursoNaoEncontrado, registrar_tratadores
 from app.core.logs import configurar_logs, registrar_middleware_de_logs
+from app.core.openapi import documentar_erros
 from app.core.paginacao import Paginacao, paginacao
 from app.core.respostas import Resposta, RespostaPaginada, resposta, resposta_paginada
 from app.core.seguranca import UsuarioAtual, exigir_roles, jwks, usuario_atual
@@ -49,6 +50,7 @@ app = FastAPI(
 )
 registrar_middleware_de_logs(app, logger)
 registrar_tratadores(app, logger)
+documentar_erros(app)
 
 
 @app.get("/health", tags=["infra"])
