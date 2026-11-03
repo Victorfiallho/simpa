@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, String, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, Date, DateTime, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -33,7 +33,8 @@ class AtendimentoAlerta(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Ids do serviço acadêmico. Não são FK: moram em outro banco (D13).
-    aluno_id: Mapped[int] = mapped_column(index=True)
+    # Sem índice próprio: a UNIQUE (aluno_id, tipo, disciplina_id) já atende a busca por aluno.
+    aluno_id: Mapped[int]
     disciplina_id: Mapped[int]
     tipo: Mapped[str] = mapped_column(String(15))
     estado: Mapped[str] = mapped_column(String(15))
@@ -50,10 +51,12 @@ class Acompanhamento(Base):
     __tablename__ = "acompanhamento"
     __table_args__ = (
         CheckConstraint(f"tipo IN ({_em(TIPOS_ACOMPANHAMENTO)})", name="tipo_valido"),
+        # Atende "acompanhamentos do aluno, do mais recente": ORDER BY data DESC, id DESC.
+        Index("ix_acompanhamento_aluno_id_data_id", "aluno_id", "data", "id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    aluno_id: Mapped[int] = mapped_column(index=True)
+    aluno_id: Mapped[int]
     # Nulo = acompanhamento geral, de todas as disciplinas.
     disciplina_id: Mapped[int | None]
     tipo: Mapped[str] = mapped_column(String(15))

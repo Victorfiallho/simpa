@@ -209,7 +209,8 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] Documentar no OpenAPI as respostas de cada rota: 400, 401, 403, 404, 422 e 500 no envelope `ErroPadrao` (`core/openapi.py`)
 - [x] Medir cobertura com `pytest-cov` (auth 90%, acadêmico 87%, analítico 95%); o CI exige 80% por serviço
 - [x] Testes de contrato das principais rotas: `tests/test_contrato.py` de cada serviço
-- [ ] Índices nas FKs e colunas de filtro; medir se listagens paginadas ficam abaixo de 300 ms
+- [x] Índices revisados contra as consultas reais (compostos filtro + ordenação, redundantes removidos); migrações conferidas contra os models por teste
+- [ ] Medir no PostgreSQL com volume se as listagens paginadas ficam abaixo de 300 ms (roteiro em `docs/desempenho.md`)
 - [ ] Refatoração final guiada pelo ruff e pela revisão em grupo
 
 ### 3.5 Documentação e apresentação — RNF05, RNF13
