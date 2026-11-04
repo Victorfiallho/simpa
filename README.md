@@ -179,6 +179,7 @@ docs/                        SRS, DER, decisões, UML, códigos de erro, roteiro
 - [Códigos de erro da API](docs/codigos-erro.md)
 - [Roteiro de demonstração do Marco 1](docs/demonstracao-marco1.md)
 - [Roteiro de demonstração do Marco 2](docs/demonstracao-marco2.md)
+- [Roteiro da apresentação da Entrega 2](docs/roteiro-apresentacao-entrega2.md) (falas e divisão entre os integrantes)
 - [Roadmap](ROADMAP.md)
 
 ## Equipe
