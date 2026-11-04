@@ -45,7 +45,8 @@ A divisão é uma sugestão: troquem à vontade, mas mantenham cada bloco com um
 > - **Banco:** saímos do SQLite para o PostgreSQL, com um banco para cada serviço.
 > - **Comunicação:** os serviços conversam por eventos, numa fila do RabbitMQ.
 > - **Interface:** o protótipo de tela com dados fixos foi refeito em React, ligado à API de verdade, com login e uma identidade visual própria. Cada cor do sistema significa uma situação de risco.
-> - **Qualidade:** saímos de um teste de sanidade para 111 testes, que rodam sozinhos no GitHub a cada envio.
+> - **Qualidade:** saímos de um teste de sanidade para 542 testes, que rodam sozinhos no GitHub a cada envio, com cobertura mínima de 80% em cada serviço.
+> - **Perfis:** cada perfil vê só o que é dele. O professor vê as próprias turmas, a coordenação vê tudo e o aluno tem uma área própria.
 >
 > Tudo sobe com um único comando no Docker. Essa base é o que permite a análise que vem a seguir.
 
@@ -175,11 +176,11 @@ A divisão é uma sugestão: troquem à vontade, mas mantenham cada bloco com um
 > 4. o histórico só ganha uma linha nova se a situação mudou, para mostrar transições e não repetições;
 > 5. o painel calcula indicadores e predição na hora.
 >
-> Embaixo estão as rotas que o serviço analítico expõe, todas protegidas por login.
+> Embaixo estão as rotas que o serviço analítico expõe, todas protegidas por login e por perfil: o professor só vê as próprias turmas e o aluno só vê os próprios dados.
 
 **Slide 16 · Qualidade**
 
-> São 111 testes automatizados, incluindo as duas fronteiras do arredondamento e uma regressão em dados onde sabemos a resposta certa. Eles rodam sozinhos no GitHub a cada envio.
+> São 542 testes automatizados, incluindo as duas fronteiras do arredondamento e uma regressão em dados onde sabemos a resposta certa. Também testamos segurança, como SQL injection e XSS, e conferimos a API contra a própria documentação. Eles rodam sozinhos no GitHub a cada envio, e o envio é recusado se a cobertura de algum serviço cair abaixo de 80%.
 
 **Ponte:** "Agora vamos mostrar tudo isso funcionando."
 
@@ -195,10 +196,11 @@ O **Victor** opera o computador e o **Felipe** narra. Deixem tudo aberto antes d
    - no Swagger do acadêmico, lançar uma nota `0.00` com peso `10` para a inscrição dele;
    - recarregar a interface e mostrar o aluno Em risco, com uma linha nova no histórico.
 5. **Análises e relatório** (30 s): descer até Predição e, em Relatórios, baixar o PDF.
+6. **Se sobrar tempo** (30 s): abrir o Copiloto e clicar numa das perguntas sugeridas, como "Quais alunos precisam de monitoria urgente?".
 
 ## 10. Rafael — Fechamento
 
-> O próximo marco é segurança: permissões por perfil, auditoria das requisições e proteção da API. Obrigado! Ficamos à disposição para perguntas.
+> O próximo marco já começou: o sistema tem permissões por perfil, uma área para o aluno pedir apoio, alertas precoces, um copiloto que responde perguntas sobre a turma e a auditoria das requisições. Obrigado! Ficamos à disposição para perguntas.
 
 ---
 
@@ -225,7 +227,9 @@ O **Victor** opera o computador e o **Felipe** narra. Deixem tudo aberto antes d
 | A predição é confiável? | Fernando | É um apoio: 94% de acerto medido deixando cada caso de fora, mas com amostra pequena e sintética. A regra oficial continua sendo o RF07. |
 | Por que a frequência quase não pesa no modelo? | Fernando | Nestes dados a frequência é alta para quase todos; com pouca variação, ela explica pouco. Com dados reais isso pode mudar. |
 | Os dados são reais? | Breno | Não. São sintéticos, por causa da LGPD, com casos de fronteira criados de propósito. |
-| Onde estão os testes? | Felipe | Em `services/*/tests`, rodando no GitHub Actions a cada envio. |
+| Onde estão os testes? | Felipe | Em `services/*/tests`, rodando no GitHub Actions a cada envio, com cobertura mínima de 80%. |
+| O Copiloto é uma IA generativa? | Fernando | Não. Ele responde por regras, com os mesmos números do painel, então não inventa dados. |
+| Um professor vê os alunos de outro? | Victor | Não. Cada rota confere o perfil, e o professor só acessa as turmas dele. |
 
 ## Versão curta (15 minutos)
 
