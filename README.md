@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# SIMPA — Sistema Inteligente de Monitoramento e Predição Acadêmica
+# SIMPA ----- Sistema Inteligente de Monitoramento e Predição Acadêmica
 
 Projeto Integrador — 2º período de Inteligência Artificial — UniEVANGÉLICA.
 
