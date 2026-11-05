@@ -49,7 +49,7 @@ flowchart LR
 | Interface | React + Vite + TypeScript, Recharts, Lucide, fonte Inter |
 | APIs | FastAPI + Pydantic |
 | Persistência | SQLAlchemy + Alembic + PostgreSQL |
-| Mensageria | RabbitMQ (pika) |
+| Mensageria | RabbitMQ |
 | Gateway | nginx |
 | Autenticação | JWT RS256 (PyJWT) |
 | Análise | `Decimal` (estatística e risco), numpy (regressão), openpyxl e reportlab (relatórios) |
