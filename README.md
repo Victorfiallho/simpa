@@ -182,11 +182,3 @@ docs/                        SRS, DER, decisões, UML, códigos de erro, roteiro
 - [Roteiro da apresentação da Entrega 2](docs/roteiro-apresentacao-entrega2.md) (falas e divisão entre os integrantes)
 - [Roadmap](ROADMAP.md)
 
-## Equipe
-
-| Integrante | Responsabilidades |
-|---|---|
-| _Nome_ | _ex.: serviço auth_ |
-| _Nome_ | _ex.: serviço acadêmico_ |
-| _Nome_ | _ex.: serviço analítico (estatística e risco)_ |
-| _Nome_ | _ex.: frontend_ |
