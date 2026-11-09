@@ -210,11 +210,11 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] Medir cobertura com `pytest-cov` (auth 90%, acadêmico 87%, analítico 95%); o CI exige 80% por serviço
 - [x] Testes de contrato das principais rotas: `tests/test_contrato.py` de cada serviço
 - [x] Índices revisados contra as consultas reais (compostos filtro + ordenação, redundantes removidos); migrações conferidas contra os models por teste
-- [ ] Medir no PostgreSQL com volume se as listagens paginadas ficam abaixo de 300 ms (roteiro em `docs/desempenho.md`)
+- [x] Medir no PostgreSQL com volume se as listagens paginadas ficam abaixo de 300 ms: ficam (10–25 ms com 3 mil alunos). As rotas agregadas do analítico levam ~3 s com 9 mil inscrições (D20); ver `docs/desempenho.md`
 - [ ] Refatoração final guiada pelo ruff e pela revisão em grupo
 
 ### 3.5 Documentação e apresentação — RNF05, RNF13
-- [ ] `docs/rastreabilidade.md`: matriz ligando cada RF/RNF a models, services, rotas e testes
+- [x] `docs/rastreabilidade.md`: matriz ligando cada RF/RNF a models, services, rotas e testes
 - [ ] Revisar UML de casos de uso, UML de classes e DER para refletir o código final
 - [ ] Atualizar `decisoes.md` com as decisões tomadas nas Fases 1–3
 - [ ] Relatório técnico final: arquitetura, justificativa das análises, exemplos de indicadores e reflexão sobre o processo

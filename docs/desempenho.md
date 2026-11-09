@@ -22,9 +22,46 @@ Os índices foram revisados contra as consultas reais do código. Dois testes po
 O acadêmico já estava coberto: toda FK e os filtros de listagem (`turma_id`, `periodo_letivo`, `professor_id`)
 têm índice, e as `UNIQUE` compostas atendem os lançamentos.
 
-## O que ainda não foi feito: medir
+## Medição de 2026-11-09 (PostgreSQL 17 real, Docker)
 
-Nada foi medido em PostgreSQL com volume. Os números abaixo precisam de Docker.
+**Carga:** 3.036 alunos, 9.108 inscrições, 18.214 notas e frequências, 500 mil linhas em `log_requisicao`, 9.108 resultados de risco. Dados sintéticos gerados por SQL (`generate_series`) direto nos bancos; risco recalculado com `app.comandos.recalcular` (26 s). Ambiente: container com 4 CPUs, tudo na mesma máquina, requisições pelo gateway, 20 repetições por rota (a primeira descartada).
+
+| Rota | p50 | p95 | Meta 300 ms |
+|---|---|---|---|
+| `GET /academico/turmas`, `/disciplinas`, `/alunos`, `/inscricoes`, `/avaliacoes`, `/frequencias` (limite 20) | 10–11 ms | 11–14 ms | ✅ |
+| `GET /academico/alunos?pagina=100` | 11 ms | 15 ms | ✅ |
+| `GET /academico/alunos?busca=...` (`ILIKE`, varredura sequencial) | 15 ms | 17 ms | ✅ |
+| `GET /auth/auditoria` (limite 20, com e sem filtro) | 14–21 ms | 15–24 ms | ✅ |
+| `GET /analitico/apoio`, `/copiloto/sugestoes` | 8–9 ms | 11 ms | ✅ |
+| `GET /analitico/alertas` | 2.633 ms | 2.833 ms | ❌ |
+| `GET /analitico/painel` | 3.154 ms | 3.266 ms | ❌ |
+| `GET /analitico/predicao` | 3.142 ms | 3.374 ms | ❌ |
+| `GET /analitico/cenarios/projecao` | 3.223 ms | 3.390 ms | ❌ |
+| `GET /analitico/relatorios/inscricoes` | 3.629 ms | 3.759 ms | ❌ |
+
+**Leitura:**
+
+- **Buscas e listagens paginadas (o que o RNF10 pede) ficam bem abaixo de 300 ms**, mesmo com 3 mil alunos.
+- **As rotas agregadas do analítico não.** O gargalo é o previsto na D20: cada consulta busca todas as inscrições do recorte no acadêmico (`/internal/inscricoes`). Com 9.108 inscrições isso é 9,2 MB de JSON: 1,8 s só na resposta HTTP e 2,5 s com a validação Pydantic, o que explica quase todo o tempo de 3 s. O custo cresce linearmente (cerca de 0,34 ms por inscrição), então a meta de 300 ms seria ultrapassada a partir de ~900 inscrições (~300 alunos com 3 disciplinas). Na demonstração (108 inscrições) o painel respondeu em ~130 ms (log de auditoria).
+- Esses números são de uma máquina de teste; servem para comparar rotas e ver a tendência, não como valor absoluto.
+
+**Planos (`EXPLAIN ANALYZE`):**
+
+| Consulta | Plano | Tempo |
+|---|---|---|
+| `resultado_risco WHERE inscricao_id ORDER BY id DESC LIMIT 1` | Index Scan Backward em `ix_resultado_risco_inscricao_id_id`, sem Sort | 0,08 ms |
+| `log_requisicao WHERE usuario_id = 3 ORDER BY timestamp DESC LIMIT 20` | Index Scan Backward em `ix_log_requisicao_timestamp` | 0,16 ms |
+| `log_requisicao WHERE status_http = 500 ORDER BY timestamp DESC LIMIT 20` | idem | 0,20 ms |
+| `log_requisicao WHERE status_http BETWEEN 400 AND 499 ...` | idem | 0,10 ms |
+| `aluno WHERE nome_completo ILIKE '%...%' ORDER BY nome_completo` | Seq Scan + Sort | 1,3 ms |
+
+Ressalva: nos dados de `log_requisicao` gerados as colunas são distribuídas de modo uniforme; com tráfego real, o planejador pode escolher os índices `(usuario_id, timestamp)` e `(status_http, timestamp)` em vez do de `timestamp`. O índice trigram da busca por nome continua desnecessário nesta escala (1,3 ms com 3 mil alunos).
+
+**Próximo passo sugerido:** atacar o gargalo da D20 guardando um resumo por inscrição no analítico (atualizado pelo worker a cada evento), ou então um endpoint de agregação no acadêmico, em vez de trazer todas as inscrições a cada consulta. Só vale a pena se a escala real passar de algumas centenas de alunos.
+
+## Como repetir a medição
+
+O roteiro abaixo foi seguido na medição acima.
 
 ### 1. Subir e popular
 
