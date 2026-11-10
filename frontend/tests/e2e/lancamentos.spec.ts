@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { criarCenario, criarProfessor, entrarNaApi, entrarNaTela, menu, USUARIOS } from './suporte';
+import { criarCenario, criarProfessor, entrarNaApi, iniciarSessao, menu, USUARIOS } from './suporte';
 
 // Cenários 4 e 5: a nota salva permanece depois de recarregar; entrada inválida mostra o erro e
 // não altera o que já está gravado.
@@ -15,7 +15,7 @@ test('nota e faltas salvas permanecem depois de recarregar a página', async ({ 
   const professor = await criarProfessor();
   const c = await criarCenario(admin, professor.api.usuarioId);
 
-  await entrarNaTela(page, professor.email);
+  await iniciarSessao(page, professor.email);
   await abrirLancamentos(page, c.disciplina.nome, c.turma.nome);
   await page.getByLabel(`Nota N1 de ${c.aluno.nome_completo}`).fill('7,5');
   await page.getByLabel(`Faltas N1 de ${c.aluno.nome_completo}`).fill('2');
@@ -43,7 +43,7 @@ test('nota inválida mostra o erro e não altera o que já estava gravado', asyn
     peso: '4',
   });
 
-  await entrarNaTela(page, professor.email);
+  await iniciarSessao(page, professor.email);
   await abrirLancamentos(page, c.disciplina.nome, c.turma.nome);
   const campo = page.getByLabel(`Nota N1 de ${c.aluno.nome_completo}`);
   await expect(campo).toHaveValue('7,5');

@@ -38,6 +38,7 @@ npm --prefix frontend run test:e2e:report           # abre o relatório HTML (ma
 | `escopo-professor.spec.ts` | o professor só vê a própria disciplina de um aluno compartilhado (nos dados aninhados do detalhe) e nenhum aluno só do outro professor |
 | `lancamentos.spec.ts` | nota e faltas salvas permanecem depois de recarregar; nota inválida mostra o erro e não altera o que estava gravado |
 | `apoio-e-relatorio.spec.ts` | pedido de apoio do aluno aparece para a coordenação; relatório CSV baixado com os registros esperados e e-mail mascarado |
+| `cadastros.spec.ts` | telas de Cadastros: criar turma, disciplina, aluno e inscrição pela matrícula; campo que falhou e matrícula repetida; editar sem mostrar o CPF e inativar mantendo o histórico; aluno em turma fora das 100 mais recentes; professor sem acesso |
 | `usabilidade.spec.ts` | o menu da gestão é alcançável em telas baixas (1280×720 e 1366×768); a situação "Em risco" aparece escrita, não só pela cor (RNF12) |
 
 Seletores por papel e nome acessível; sem esperas fixas nem posições. Cada professor usado nos
@@ -46,9 +47,11 @@ testes é criado na hora (`criarProfessor`), então o teste não depende do que 
 ## Cuidados
 
 - **Traces e capturas** (`test-results/`, `playwright-report/`, ambos fora do Git) são guardados só em
-  falha. O trace **contém o JWT, o cabeçalho `Authorization` e a senha do ambiente de teste** (conferido
-  abrindo um trace). São credenciais sintéticas de um ambiente descartável, mas não publique esses
-  artefatos fora do CI privado e use retenção curta.
+  falha. Só `login.spec.ts` digita a senha na tela; os demais testes fazem o login e preparam os dados
+  pelo `fetch` do Node (que o Playwright não grava) e entregam a sessão ao navegador. Por isso a senha do
+  ambiente de teste **só aparece nos traces do teste de login**. O **token (JWT) aparece em todos**: o da
+  sessão do navegador, de 60 minutos. São credenciais sintéticas de um ambiente descartável, mas não
+  publique esses artefatos fora do CI privado e use retenção curta.
 - Os testes criam usuários no auth de teste por `docker compose exec` (o auth não tem rota para isso).
   Só funciona no projeto `simpa-test`.
 - O Playwright transpila TypeScript sem checar tipos (o projeto não tem `@types/node`); o `npm run build`

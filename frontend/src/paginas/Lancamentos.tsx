@@ -12,6 +12,7 @@ import type {
   TurmaCadastro,
 } from '../api/tipos';
 import { useDados } from '../api/useDados';
+import { useNomesDeTurma } from '../api/useNomesDeTurma';
 import { Conteudo } from '../componentes/Conteudo';
 
 // Lançamento de notas e frequência (RF03) para admin e professor. O professor só enxerga as próprias
@@ -64,7 +65,7 @@ export function Lancamentos() {
     [],
   );
   const disciplina = disciplinas.dados?.itens.find((d) => String(d.id) === disciplinaId) ?? null;
-  const nomeTurma = (id: number) => turmas.dados?.find((t) => t.id === id)?.nome ?? `Turma ${id}`;
+  const nomeTurma = useNomesDeTurma(turmas.dados ?? []);
 
   const dados = useDados<Dados | null>(async () => {
     if (!disciplina) return null;

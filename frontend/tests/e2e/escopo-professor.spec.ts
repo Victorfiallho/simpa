@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { criarAluno, criarCenario, criarProfessor, entrarNaApi, entrarNaTela, inscrever, menu, USUARIOS } from './suporte';
+import { criarAluno, criarCenario, criarProfessor, entrarNaApi, iniciarSessao, inscrever, menu, USUARIOS } from './suporte';
 
 // Cenário 3: o professor enxerga só o seu escopo, inclusive nos dados aninhados de um aluno que
 // também cursa a disciplina de outro professor (D03).
@@ -39,7 +39,7 @@ test('professor só vê a própria disciplina do aluno compartilhado e nenhum al
   }
 
   // Professor A (sessão própria).
-  await entrarNaTela(page, ana.email);
+  await iniciarSessao(page, ana.email);
   await menu(page).getByRole('link', { name: 'Alunos' }).click();
   await page.getByPlaceholder('Buscar por nome ou matrícula').fill(a.aluno.nome_completo);
   await page.getByRole('button', { name: new RegExp(a.aluno.nome_completo) }).click();
@@ -55,7 +55,7 @@ test('professor só vê a própria disciplina do aluno compartilhado e nenhum al
   // Professor B, em outra sessão de navegador: o espelho do que o A viu.
   const contextoBruno = await browser.newContext();
   const paginaBruno = await contextoBruno.newPage();
-  await entrarNaTela(paginaBruno, bruno.email);
+  await iniciarSessao(paginaBruno, bruno.email);
   await menu(paginaBruno).getByRole('link', { name: 'Alunos' }).click();
   await paginaBruno.getByPlaceholder('Buscar por nome ou matrícula').fill(a.aluno.nome_completo);
   await paginaBruno.getByRole('button', { name: new RegExp(a.aluno.nome_completo) }).click();

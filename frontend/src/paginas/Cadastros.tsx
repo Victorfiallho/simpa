@@ -11,6 +11,7 @@ import type {
   TurmaCadastro,
 } from '../api/tipos';
 import { useDados } from '../api/useDados';
+import { useNomesDeTurma } from '../api/useNomesDeTurma';
 import { Conteudo } from '../componentes/Conteudo';
 import { Gaveta } from '../componentes/Gaveta';
 
@@ -35,6 +36,7 @@ const ROTULO_STATUS: Record<string, string> = {
   encerrada: 'Encerrada',
   transferido: 'Transferido',
   concluido: 'Concluído',
+  evadido: 'Evadido',
   concluida: 'Concluída',
   trancada: 'Trancada',
   cancelada: 'Cancelada',
@@ -42,7 +44,8 @@ const ROTULO_STATUS: Record<string, string> = {
 const rotuloStatus = (s: string) => ROTULO_STATUS[s] ?? s;
 
 const STATUS_TURMA = ['ativa', 'inativa', 'encerrada'];
-const STATUS_ALUNO = ['ativo', 'inativo', 'transferido', 'concluido'];
+// Iguais aos do backend (StatusAluno): tests/contrato confere.
+const STATUS_ALUNO = ['ativo', 'inativo', 'transferido', 'concluido', 'evadido'];
 const STATUS_INSCRICAO = ['ativa', 'trancada', 'concluida', 'cancelada'];
 const TURNOS = ['matutino', 'vespertino', 'noturno', 'integral'];
 
@@ -61,6 +64,8 @@ interface Campo {
   dica?: string;
   maximo?: number;
   opcoes?: Opcao[];
+  /** Nome a mostrar para o valor atual quando ele não está nas `opcoes` (lista cortada em 100). */
+  rotuloDoValorAtual?: (valor: string) => string;
 }
 
 interface Coluna<T> {
@@ -87,6 +92,16 @@ const maiuscula = (t: string) => `${t[0].toUpperCase()}${t.slice(1)}`;
 const novo = <T extends { id: number; status: string }>(e: Entidade<T>) => (e.feminino ? 'Nova' : 'Novo');
 const sufixo = <T extends { id: number; status: string }>(e: Entidade<T>) => (e.feminino ? 'a' : 'o');
 
+/**
+ * Opções de um campo de escolha. O valor atual sempre entra, mesmo fora da lista (que vem cortada em
+ * 100): sem isso o `select` ficaria vazio e o formulário de edição não poderia ser enviado.
+ */
+function opcoesDoCampo(campo: Campo, atual: string): Opcao[] {
+  const opcoes = campo.opcoes ?? [];
+  if (!atual || opcoes.some((o) => o.valor === atual)) return opcoes;
+  return [{ valor: atual, rotulo: campo.rotuloDoValorAtual?.(atual) ?? atual }, ...opcoes];
+}
+
 /** Texto vazio vira null nos campos opcionais; número vira número. */
 function converter(campo: Campo, texto: string): unknown {
   const limpo = texto.trim();
@@ -99,11 +114,16 @@ export function Cadastros({ aoMudarTurmas }: { aoMudarTurmas?: () => void }) {
   const [aba, setAba] = useState<Aba>('turmas');
   const turmas = useDados(
     () =>
-      api<RespostaPaginada<TurmaCadastro>>('/academico/turmas?limite=100&ordenar_por=nome').then(
-        (r) => r.dados,
-      ),
+      api<RespostaPaginada<TurmaCadastro>>(
+        // As mais recentes: são as que importam para novos cadastros. O nome das demais é buscado por id.
+        '/academico/turmas?limite=100&ordenar_por=id&ordem=desc',
+      ).then((r) => ({
+        itens: [...r.dados].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+        total: r.total_registros,
+      })),
     [],
   );
+  const nomeTurma = useNomesDeTurma(turmas.dados?.itens ?? []);
 
   return (
     <section className="cartao">
@@ -123,11 +143,19 @@ export function Cadastros({ aoMudarTurmas }: { aoMudarTurmas?: () => void }) {
         </div>
       </div>
       <Conteudo estado={turmas}>
-        {(listaTurmas) => {
-          const nomeTurma = (id: number) => listaTurmas.find((t) => t.id === id)?.nome ?? `Turma ${id}`;
+        {({ itens: listaTurmas, total }) => {
           const opcoesTurma = listaTurmas.map((t) => ({ valor: String(t.id), rotulo: `${t.nome} · ${t.periodo_letivo}` }));
+          // As listas de turma desta tela (e dos formulários) vêm limitadas a 100: avisa, em vez de
+          // esconder as demais em silêncio.
+          const aviso =
+            total > listaTurmas.length ? (
+              <p className="aviso" role="status">
+                Nas listas de escolha aparecem as {listaTurmas.length} turmas mais recentes, de {total}.
+              </p>
+            ) : null;
+          let painel;
           if (aba === 'turmas') {
-            return (
+            painel = (
               <PainelTurmas
                 aoMudar={() => {
                   turmas.recarregar();
@@ -135,14 +163,19 @@ export function Cadastros({ aoMudarTurmas }: { aoMudarTurmas?: () => void }) {
                 }}
               />
             );
+          } else if (aba === 'disciplinas') {
+            painel = <PainelDisciplinas nomeTurma={nomeTurma} opcoesTurma={opcoesTurma} />;
+          } else if (aba === 'alunos') {
+            painel = <PainelAlunos nomeTurma={nomeTurma} opcoesTurma={opcoesTurma} />;
+          } else {
+            painel = <PainelInscricoes turmas={listaTurmas} />;
           }
-          if (aba === 'disciplinas') {
-            return <PainelDisciplinas nomeTurma={nomeTurma} opcoesTurma={opcoesTurma} />;
-          }
-          if (aba === 'alunos') {
-            return <PainelAlunos nomeTurma={nomeTurma} opcoesTurma={opcoesTurma} />;
-          }
-          return <PainelInscricoes turmas={listaTurmas} />;
+          return (
+            <>
+              {aviso}
+              {painel}
+            </>
+          );
         }}
       </Conteudo>
     </section>
@@ -288,7 +321,14 @@ function PainelAlunos({
       { chave: 'telefone', rotulo: 'Telefone (opcional)', tipo: 'texto', maximo: 20 },
       { chave: 'data_nascimento', rotulo: 'Data de nascimento (opcional)', tipo: 'data' },
       { chave: 'curso', rotulo: 'Curso', tipo: 'texto', obrigatorio: true, maximo: 120 },
-      { chave: 'turma_id', rotulo: 'Turma', tipo: 'opcoes', obrigatorio: true, opcoes: opcoesTurma },
+      {
+        chave: 'turma_id',
+        rotulo: 'Turma',
+        tipo: 'opcoes',
+        obrigatorio: true,
+        opcoes: opcoesTurma,
+        rotuloDoValorAtual: (valor) => nomeTurma(Number(valor)),
+      },
     ],
     paraFormulario: (a) => ({
       nome_completo: a.nome_completo,
@@ -567,7 +607,7 @@ function FormularioEntidade<T extends { id: number; status: string }>({
                 onChange={(e) => setValores({ ...valores, [c.chave]: e.target.value })}
               >
                 <option value="">Selecione…</option>
-                {(c.opcoes ?? []).map((o) => (
+                {opcoesDoCampo(c, valores[c.chave]).map((o) => (
                   <option key={o.valor} value={o.valor}>
                     {o.rotulo}
                   </option>
@@ -680,7 +720,7 @@ function PainelInscricoes({ turmas }: { turmas: TurmaCadastro[] }) {
     }
   }
 
-  const nomeTurma = (id: number) => turmas.find((t) => t.id === id)?.nome ?? `Turma ${id}`;
+  const nomeTurma = useNomesDeTurma(turmas);
 
   return (
     <>

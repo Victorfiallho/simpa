@@ -28,6 +28,8 @@ jobs:
             (cd "services/$servico" && pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=80) || exit 1
             echo "::endgroup::"
           done
+      - name: Contrato entre o front e o backend (valores enumerados)
+        run: pytest -q tests/contrato
 
   frontend:
     name: Frontend (TypeScript e build)

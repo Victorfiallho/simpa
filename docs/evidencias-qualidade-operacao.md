@@ -82,15 +82,27 @@ Playwright `1.63.0` (versão fixa, casa com o Chromium do ambiente), `frontend/p
 | 2. Login inválido | `login.spec.ts` | passa |
 | 3. Professor só no seu escopo, inclusive dados aninhados | `escopo-professor.spec.ts` | passa |
 | 4. Nota salva permanece após recarregar | `lancamentos.spec.ts` | passa |
-| 5. Entrada inválida mostra erro e não altera dados | `lancamentos.spec.ts` | passa |
+| 5. Entrada inválida mostra erro e não altera dados | `lancamentos.spec.ts` e `cadastros.spec.ts` | passa |
 | 6. Sessão realmente expirada | `login.spec.ts`: JWT vencido assinado pelo auth, `expiraEm` do navegador no futuro; o backend responde 401 e a tela volta ao login | passa |
 | 7. Pedido de apoio do aluno aparece para a coordenação | `apoio-e-relatorio.spec.ts` | passa |
 | 8. Relatório baixado com os registros esperados | `apoio-e-relatorio.spec.ts` (CSV, e-mail mascarado) | passa |
-| Extra: usabilidade e acessibilidade | `usabilidade.spec.ts` (menu alcançável em telas baixas; "Em risco" em texto, RNF12) | passa |
+| Telas de Cadastros (RF01, RF02) | `cadastros.spec.ts`: criar turma, disciplina, aluno e inscrição pela matrícula; dados inválidos e matrícula repetida; editar sem mostrar o CPF e inativar mantendo o histórico; aluno em turma fora das 100 mais recentes; professor sem acesso | passa |
+| Usabilidade e acessibilidade | `usabilidade.spec.ts`: menu alcançável em telas baixas; "Em risco" em texto (RNF12) | passa |
 
-**Resultado: 14 testes passam**, em 4 execuções completas seguidas (13 testes cada na época, cerca de 37 s por execução), mais o teste de acessibilidade acrescentado depois, que passa isolado.
+**Resultado: 19 testes passam.** Estabilidade medida, não presumida: a suíte inteira repetida 3 vezes seguidas (57 execuções, 0 falha) e o teste de lançamento repetido 15 vezes (30 execuções, 0 falha). A primeira medição achou instabilidades reais (abaixo), e foi a repetição que as mostrou: uma execução isolada passava.
 
-**Artefatos de falha.** Conferi um trace de verdade: ele **contém o JWT, o cabeçalho `Authorization` e a senha do ambiente de teste**. São credenciais sintéticas de um ambiente descartável, mas o artefato não deve sair do CI privado e precisa de retenção curta (a configuração só guarda trace e captura em falha).
+**Controle negativo.** O teste do aluno em turma antiga foi conferido desligando a correção de propósito: ele falhou como previsto (`Expected "615"`, `Received ""`) e voltou a passar com o código bom.
+
+**Credenciais nos traces.** O trace de falha traz o que o navegador e o teste enviaram. Medido abrindo traces de verdade:
+
+| Teste | Senha do ambiente de teste no trace | Token (JWT) |
+|---|---|---|
+| Qualquer teste que não é de login | **não aparece**: o login e a preparação de dados usam o `fetch` do Node, que o Playwright não grava, e a sessão é entregue ao navegador sem digitar a senha | aparece 1 (o da sessão do navegador) |
+| `login.spec.ts` (válido) | aparece, porque o teste digita a senha na tela | aparece |
+
+São credenciais sintéticas de um ambiente descartável, e o token vale 60 minutos. Mesmo assim os artefatos de falha não devem sair do CI privado e precisam de retenção curta.
+
+**Contrato dos valores permitidos entre front e backend.** `tests/contrato/test_valores_front_backend.py` (17 enumerados: motivos e estados de apoio, tipos e níveis de alerta, estado do atendimento, tipo de acompanhamento, base do cenário, situação, janela, formato, perfis, status de turma, disciplina, aluno e inscrição, turno e tipo de avaliação). Não precisa do ambiente, e **já roda no CI** (job de backend). Conferido: ao tirar `evadido` do front ele falha e aponta `só no backend: ['evadido']`.
 
 **Limitação do ambiente desta execução.** O build da imagem do frontend dentro do Docker falhou aqui (`npm ci` com "Exit handler never called!", rede do proxy), inclusive com o lockfile original, então o problema é do ambiente e não da mudança. Para testar, o `dist` foi gerado fora do contêiner (`npm run build`) e empacotado no nginx por um Dockerfile temporário fora do repositório. O artefato é o mesmo.
 
@@ -103,6 +115,9 @@ Playwright `1.63.0` (versão fixa, casa com o Chromium do ambiente), `frontend/p
 | **Nenhum aluno conseguia enviar um pedido de apoio pela tela**: os 4 motivos do front ("Dificuldade no conteúdo"…) não existem na lista do backend ("Dificuldade com o conteúdo"…), e toda tentativa dava "Selecione um dos motivos da lista" | Etapa 5, cenário 7 (a conferência de contrato que eu tinha feito antes olhou os campos, não os valores permitidos) | Front com os motivos do backend e teste `test_motivos_do_front_sao_os_do_backend` (analítico), que lê o `MeuApoio.tsx` e falha se os dois divergirem |
 | **O menu lateral da gestão não rolava**: com 11 itens (1.125 px), em 1366×768 os itens "Pendências", "Auditoria" e "Meu perfil" ficavam fora da tela e inalcançáveis. Já existia; o item "Cadastros" piorou | Etapa 5: o teste do apoio falhava em 3 de 4 execuções com "element is outside of the viewport" | `overflow-y: auto` no menu (o perfil continua fixo embaixo) e `usabilidade.spec.ts` em 1280×720 e 1366×768 |
 | As telas de Lançamentos e de Inscrições carregavam só as primeiras 100 disciplinas, **sem avisar** | Etapa 5: o seletor não mostrava a disciplina nova | Aviso "Mostrando as primeiras N de M disciplinas ativas" |
+| **O nome da turma saía como "Turma 199"** quando a turma estava fora das 100 primeiras da lista (Lançamentos e Cadastros). Era também a causa de uma instabilidade nos testes (5 falhas em 30 execuções) | Repetir o teste de lançamento 15 vezes | O nome que falta é buscado direto por `GET /turmas/{id}` (`useNomesDeTurma`); teste repetido 30 vezes sem falha |
+| **O seletor de turma dos formulários de Cadastros ficava sem a turma nova** (lista alfabética cortada em 100): não dava para cadastrar aluno numa turma fora da lista. Em edição, o seletor ficava vazio e o formulário não podia ser enviado | Repetir a suíte 3 vezes: o teste de dados inválidos falhou 2 de 3 | A lista traz as turmas mais recentes; o formulário de edição inclui sempre a turma atual do aluno; aviso de corte; teste com 100 turmas mais novas e controle negativo |
+| **O front não conhecia o status de aluno `evadido`**, que o backend aceita: apareceria com o texto cru e o formulário de edição mostraria a situação errada | Auditoria de todos os valores enumerados (a conferência anterior só olhava os campos) | Front com `evadido`; `tests/contrato` confere os 17 enumerados e roda no CI |
 | Consulta integrada do aluno vazava inscrições de outro professor | Etapa 4.3 (leitura do guia) | Filtro no backend + teste de regressão |
 | `--listar` do comando de reprocessamento não terminava: devolvia cada mensagem e a lia de novo (parava só no limite de 1.000) | Teste de integração do evento inválido | Lê um retrato do tamanho da fila e devolve tudo no final; teste unitário novo |
 | **As filas de falha dos dois serviços estavam ligadas à mesma exchange `fanout`**: a falha de um serviço aparecia também na fila de falhas do outro (já existia; as 3 mensagens vistas em `auth.auditoria.falhas` eram do analítico) | Conferência do estado das filas depois da suíte | Falha vai direto para a fila do próprio serviço (analítico e auth); teste no auth; o teste de integração confere que a fila do outro não muda |
@@ -118,7 +133,7 @@ O terceiro defeito importa para a etapa 6: sem a correção, um alerta de "novas
 - [x] Interrupção e recuperação do worker aprovadas.
 - [x] Entrega confiável/outbox implementada e testada com broker indisponível.
 - [x] Reentrega idempotente e reprocessamento de falhas verificados.
-- [x] Testes de navegador aprovados para funcionalidades existentes.
+- [x] Testes de navegador aprovados para funcionalidades existentes (19 testes, incluindo as telas de Cadastros).
 - [ ] Métricas reais coletadas e dashboards úteis.
 - [ ] Alertas acionados e recuperados em simulação.
 - [ ] Backup íntegro, criptografado e com estratégia de consistência definida.
@@ -132,6 +147,7 @@ O terceiro defeito importa para a etapa 6: sem a correção, um alerta de "novas
 ## Pendências e decisões
 
 - **Etapas 6 a 9 não foram iniciadas:** monitoramento das filas, backup, restauração e a integração com o CI.
-- **As suítes entre serviços e de navegador ainda não rodam no CI** (etapa 9): hoje rodam localmente contra o `compose.test.yml`.
+- **As suítes entre serviços e de navegador ainda não rodam no CI** (etapa 9): hoje rodam localmente contra o `compose.test.yml`. Só o teste de contrato dos valores (`tests/contrato`), que não precisa do ambiente, já roda no CI.
+- **Filtro global de turmas** (cabeçalho do painel, `App.tsx`): também carrega só as 100 primeiras turmas em ordem alfabética, sem aviso. Fica fora desta correção e vale tratar junto com uma busca por turma.
 - **Topologia já existente:** a exchange `simpa.eventos.falhas` (`fanout`) ficou como legado, porque trocar o argumento da fila principal exigiria recriá-la. Num ambiente com dados, a migração é: esvaziar a fila principal, apagar a fila e subir o worker novo.
 - **Cópia externa do backup e a chave de criptografia** dependem de infraestrutura que ainda não foi definida.

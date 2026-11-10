@@ -6,7 +6,7 @@ import {
   criarProfessor,
   criarUsuarioAluno,
   entrarNaApi,
-  entrarNaTela,
+  iniciarSessao,
   menu,
   USUARIOS,
 } from './suporte';
@@ -21,7 +21,7 @@ test('pedido de apoio criado pelo aluno aparece para a coordenação', async ({ 
   criarUsuarioAluno(c.aluno.id, c.aluno.email);
   const texto = `Preciso de ajuda com a lista de exercícios ${c.aluno.matricula}`;
 
-  await entrarNaTela(page, c.aluno.email);
+  await iniciarSessao(page, c.aluno.email);
   await menu(page).getByRole('link', { name: 'Pedir apoio' }).click();
   await page.getByLabel('Motivo').selectOption('Dificuldade com o conteúdo');
   await page.getByLabel('Conte o que está acontecendo').fill(texto);
@@ -30,7 +30,7 @@ test('pedido de apoio criado pelo aluno aparece para a coordenação', async ({ 
 
   const contextoCoordenacao = await browser.newContext();
   const coordenacao = await contextoCoordenacao.newPage();
-  await entrarNaTela(coordenacao, USUARIOS.coordenacao);
+  await iniciarSessao(coordenacao, USUARIOS.coordenacao);
   await menu(coordenacao).getByRole('link', { name: 'Pendências' }).click();
   const linha = coordenacao.getByRole('row').filter({ hasText: texto });
   await expect(linha).toBeVisible();
@@ -60,7 +60,7 @@ test('o relatório CSV é baixado com os registros esperados e o e-mail mascarad
     faltas: 2,
   });
 
-  await entrarNaTela(page, USUARIOS.coordenacao);
+  await iniciarSessao(page, USUARIOS.coordenacao);
   await menu(page).getByRole('link', { name: 'Relatórios' }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: /^CSV/ }).click();

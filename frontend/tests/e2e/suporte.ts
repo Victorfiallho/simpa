@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { type APIRequestContext, expect, type Page, request } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 export const BASE_URL = process.env.SIMPA_BASE_URL ?? 'http://127.0.0.1:18080';
@@ -103,35 +103,52 @@ export function tokenExpirado(): string {
 
 // ---------- API (dados dos cenários) ----------
 
+/**
+ * Cliente de API dos testes. Usa o `fetch` do Node, e não o contexto de API do Playwright, de
+ * propósito: o Playwright grava as requisições dele no trace, e o trace levaria a senha do
+ * ambiente de teste (do login) e o token de cada chamada de preparação de dados.
+ */
 export interface Api {
-  contexto: APIRequestContext;
   usuarioId: number;
   post<T = any>(caminho: string, corpo: unknown, esperado?: number): Promise<T>;
   get<T = any>(caminho: string): Promise<T>;
 }
 
-export async function entrarNaApi(email: string, senha = SENHA): Promise<Api> {
-  const login = await request.newContext({ baseURL: BASE_URL });
-  const resposta = await login.post('/api/auth/login', { data: { email, senha } });
-  expect(resposta.status(), `login de ${email}`).toBe(200);
-  const { dados } = await resposta.json();
-  await login.dispose();
-  const contexto = await request.newContext({
-    baseURL: BASE_URL,
-    extraHTTPHeaders: { Authorization: `Bearer ${dados.access_token}` },
+async function chamar(token: string, metodo: 'GET' | 'POST', caminho: string, corpo?: unknown): Promise<Response> {
+  return fetch(`${BASE_URL}/api${caminho}`, {
+    method: metodo,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: corpo === undefined ? undefined : JSON.stringify(corpo),
   });
+}
+
+/** Login pela API (sem aparecer no trace). Devolve a resposta `dados` do auth. */
+export async function loginPelaApi(email: string, senha = SENHA): Promise<any> {
+  const resposta = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, senha }),
+  });
+  expect(resposta.status, `login de ${email}`).toBe(200);
+  return (await resposta.json()).dados;
+}
+
+export async function entrarNaApi(email: string, senha = SENHA): Promise<Api> {
+  const dados = await loginPelaApi(email, senha);
+  const token: string = dados.access_token;
   return {
-    contexto,
     usuarioId: dados.usuario.id,
     async post(caminho, corpo, esperado = 201) {
-      const r = await contexto.post(`/api${caminho}`, { data: corpo });
-      expect(r.status(), `POST ${caminho}: ${await r.text()}`).toBe(esperado);
-      return (await r.json()).dados;
+      const r = await chamar(token, 'POST', caminho, corpo);
+      const texto = await r.text();
+      expect(r.status, `POST ${caminho}: ${texto}`).toBe(esperado);
+      return JSON.parse(texto).dados;
     },
     async get(caminho) {
-      const r = await contexto.get(`/api${caminho}`);
-      expect(r.status(), `GET ${caminho}: ${await r.text()}`).toBe(200);
-      return (await r.json()).dados;
+      const r = await chamar(token, 'GET', caminho);
+      const texto = await r.text();
+      expect(r.status, `GET ${caminho}: ${texto}`).toBe(200);
+      return JSON.parse(texto).dados;
     },
   };
 }
@@ -190,6 +207,26 @@ export async function entrarNaTela(page: Page, email: string, senha = SENHA): Pr
   await page.getByPlaceholder('Digite sua senha').fill(senha);
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Menu principal' })).toBeVisible();
+}
+
+/**
+ * Inicia a sessão sem digitar a senha na tela: faz o login pela API e entrega a sessão ao navegador,
+ * como a própria tela faria. Só `login.spec.ts` usa a tela de login. Assim a senha do ambiente de
+ * teste não aparece nos traces dos demais testes (o token, de curta duração, ainda aparece).
+ */
+export async function iniciarSessao(page: Page, email: string): Promise<void> {
+  const dados = await loginPelaApi(email);
+  await page.addInitScript(
+    ([token, usuario, minutos]) => {
+      sessionStorage.setItem(
+        'simpa.sessao',
+        JSON.stringify({ token, usuario, expiraEm: Date.now() + Number(minutos) * 60_000 }),
+      );
+    },
+    [dados.access_token, dados.usuario, dados.expira_em_minutos],
+  );
+  await page.goto('/');
+  await expect(menu(page)).toBeVisible();
 }
 
 export function menu(page: Page) {

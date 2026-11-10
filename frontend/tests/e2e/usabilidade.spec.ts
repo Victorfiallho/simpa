@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { criarCenario, criarProfessor, entrarNaApi, entrarNaTela, menu, USUARIOS } from './suporte';
+import { criarCenario, criarProfessor, entrarNaApi, iniciarSessao, menu, USUARIOS } from './suporte';
 
 // Telas baixas (notebook de 768 px): o menu da gestão tem 11 itens e não cabe na janela. Todos
 // precisam continuar alcançáveis, e o perfil (nome e "Sair") continua visível embaixo.
@@ -11,7 +11,7 @@ for (const viewport of [
 ]) {
   test(`o menu da coordenação é alcançável em ${viewport.width}×${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    await entrarNaTela(page, USUARIOS.coordenacao);
+    await iniciarSessao(page, USUARIOS.coordenacao);
 
     for (const [item, titulo] of [
       ['Pendências', 'Pendências'],
@@ -43,7 +43,7 @@ test('a situação de risco aparece escrita, e não só pela cor (RNF12)', async
     faltas: 2,
   });
 
-  await entrarNaTela(page, USUARIOS.coordenacao);
+  await iniciarSessao(page, USUARIOS.coordenacao);
   await menu(page).getByRole('link', { name: 'Alunos' }).click();
   await page.getByPlaceholder('Buscar por nome ou matrícula').fill(c.aluno.nome_completo);
 

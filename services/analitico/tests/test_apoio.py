@@ -1,6 +1,5 @@
 """Perfil aluno e pedidos de apoio (RF07): o aluno só vê o que é dele; a coordenação atende."""
 
-import re
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -242,21 +241,3 @@ def test_estado_invalido_e_pedido_inexistente(http):
 
     assert invalido.status_code == 422
     assert inexistente.status_code == 404
-
-
-def test_motivos_do_front_sao_os_do_backend():
-    """A tela do aluno e o backend precisam falar os mesmos motivos; o backend recusa os demais.
-
-    Já houve divergência: os quatro motivos da tela eram todos inválidos e nenhum aluno conseguia
-    enviar um pedido. Como cada lado era testado sozinho, só um teste que lê os dois pega isso.
-    """
-    from pathlib import Path
-
-    from app.models.apoio import MOTIVOS_APOIO
-
-    tela = Path(__file__).resolve().parents[3] / "frontend/src/paginas/MeuApoio.tsx"
-    texto = tela.read_text(encoding="utf-8")
-    bloco = texto.split("const MOTIVOS = [", 1)[1].split("];", 1)[0]
-    motivos_da_tela = tuple(re.findall(r"'([^']+)'", bloco))
-
-    assert motivos_da_tela == MOTIVOS_APOIO
