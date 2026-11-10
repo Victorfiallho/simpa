@@ -1,0 +1,334 @@
+# Testes das regras de alerta (promtool test rules). Cada alerta é provado nos dois sentidos:
+# dispara quando deve e fica quieto quando não deve (início, oscilação, valor normal).
+# Rodar: docker run --rm -v "$PWD:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v2.55.1 \
+#          test rules /etc/prometheus/regras.test.yml
+rule_files:
+  - regras.yml
+
+evaluation_interval: 10s
+
+tests:
+  # ---------- FilaSemConsumidor ----------
+  - name: fila sem consumidor há mais de 1 minuto dispara; antes disso e com consumidor, não
+    interval: 10s
+    input_series:
+      - series: 'rabbitmq_detailed_queue_consumers{queue="analitico.recalculo-risco",vhost="/"}'
+        values: '1x12 0x30'   # com consumidor por 2 min; depois zero
+      - series: 'rabbitmq_detailed_queue_consumers{queue="auth.auditoria",vhost="/"}'
+        values: '1x42'        # a outra fila segue saudável
+    alert_rule_test:
+      - eval_time: 100s
+        alertname: FilaSemConsumidor
+        exp_alerts: []        # tudo normal
+      - eval_time: 160s
+        alertname: FilaSemConsumidor
+        exp_alerts: []        # zero há só 30 s: ainda é oscilação, não alerta
+      - eval_time: 220s
+        alertname: FilaSemConsumidor
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              queue: analitico.recalculo-risco
+              vhost: /
+            exp_annotations:
+              summary: "Fila analitico.recalculo-risco sem consumidor há mais de 1 minuto"
+              description: "O worker não está conectado à fila. Eventos acumulam sem ser processados."
+              runbook: "docs/operacao-filas.md#alerta-filasemconsumidor"
+
+  # ---------- FilaEsperadaAusente ----------
+  - name: fila esperada que some das métricas dispara (série ausente não é saudável)
+    interval: 10s
+    input_series:
+      - series: 'rabbitmq_detailed_queue_consumers{queue="auth.auditoria",vhost="/"}'
+        values: '1x30'
+      # a fila do analítico NÃO existe nas métricas
+    alert_rule_test:
+      - eval_time: 30s
+        alertname: FilaEsperadaAusente
+        exp_alerts: []        # ainda dentro do 1 minuto
+      - eval_time: 120s
+        alertname: FilaEsperadaAusente
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              queue: analitico.recalculo-risco
+            exp_annotations:
+              summary: "Fila analitico.recalculo-risco não aparece nas métricas"
+              description: "A fila não existe ou o RabbitMQ não a informa. Sem a série, não dá para dizer que está saudável."
+              runbook: "docs/operacao-filas.md#alerta-filaesperadaausente"
+
+  - name: com as duas filas presentes, a ausência não dispara
+    interval: 10s
+    input_series:
+      - series: 'rabbitmq_detailed_queue_consumers{queue="analitico.recalculo-risco",vhost="/"}'
+        values: '1x30'
+      - series: 'rabbitmq_detailed_queue_consumers{queue="auth.auditoria",vhost="/"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 250s
+        alertname: FilaEsperadaAusente
+        exp_alerts: []
+
+  # ---------- Filas de falhas ----------
+  - name: mensagem nova na fila de falhas dispara; fila de falhas esquecida dispara depois de 30 min
+    interval: 1m
+    input_series:
+      - series: 'rabbitmq_detailed_queue_messages_ready{queue="analitico.recalculo-risco.falhas",vhost="/"}'
+        values: '0x5 1x60'    # vazia por 5 min; chega 1 mensagem e fica lá
+      - series: 'rabbitmq_detailed_queue_messages_ready{queue="auth.auditoria.falhas",vhost="/"}'
+        values: '0x65'        # a do auth segue vazia
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: FilaDeFalhasRecebeuMensagens
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: FilaDeFalhasRecebeuMensagens
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              queue: analitico.recalculo-risco.falhas
+              vhost: /
+            exp_annotations:
+              summary: "Chegaram mensagens à fila de falhas analitico.recalculo-risco.falhas"
+              description: "Um evento foi recusado ou esgotou as tentativas. Exige ação humana: descobrir a causa e reprocessar."
+              runbook: "docs/operacao-filas.md#alerta-filadefalhasrecebeumensagens"
+      - eval_time: 20m
+        alertname: FilaDeFalhasRecebeuMensagens
+        exp_alerts: []        # deixou de ser "nova"...
+      - eval_time: 20m
+        alertname: FilaDeFalhasNaoVazia
+        exp_alerts: []        # ...e ainda não passou de 30 min
+      - eval_time: 45m
+        alertname: FilaDeFalhasNaoVazia
+        exp_alerts:           # ...mas esquecida há mais de 30 min: segue pedindo ação
+          - exp_labels:
+              severity: warning
+              queue: analitico.recalculo-risco.falhas
+              vhost: /
+            exp_annotations:
+              summary: "A fila de falhas analitico.recalculo-risco.falhas tem mensagens há mais de 30 minutos"
+              description: "1 mensagem(ns) esperando decisão."
+              runbook: "docs/operacao-filas.md#alerta-filadefalhasnaovazia"
+
+  # ---------- Outbox ----------
+  - name: evento pendente na outbox há mais de 2 minutos dispara; abaixo disso, não
+    interval: 10s
+    input_series:
+      - series: 'academico_outbox_idade_evento_mais_antigo_segundos'
+        values: '0x6 90x6 150x30'   # normal; 90 s (abaixo do limite); depois 150 s
+    alert_rule_test:
+      - eval_time: 100s
+        alertname: EventoPendenteNaOutbox
+        exp_alerts: []
+      - eval_time: 200s
+        alertname: EventoPendenteNaOutbox
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Evento pendente na outbox há mais de 2 minutos"
+              description: "O mais antigo espera há 2m 30s. Veja o broker, a topologia e o despachante."
+              runbook: "docs/operacao-filas.md#alerta-eventopendentenaoutbox"
+
+  # ---------- Crescimento da fila ----------
+  - name: fila que cresce de forma sustentada dispara; fila alta mas estável ou crescimento pequeno, não
+    interval: 10s
+    input_series:
+      # sobe 1 mensagem a cada 10 s (0,1/s), de 30 para 210 em 30 min
+      - series: 'rabbitmq_detailed_queue_messages_ready{queue="analitico.recalculo-risco",vhost="/"}'
+        values: '30+1x180'
+      # fila ALTA mas estável: não é crescimento
+      - series: 'rabbitmq_detailed_queue_messages_ready{queue="auth.auditoria",vhost="/"}'
+        values: '500x180'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: FilaCrescendo
+        exp_alerts: []        # cresce, mas ainda não foi por 5 minutos
+      - eval_time: 12m
+        alertname: FilaCrescendo
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              queue: analitico.recalculo-risco
+              vhost: /
+            exp_annotations:
+              summary: "A fila analitico.recalculo-risco cresce há 5 minutos"
+              description: "Crescendo a 6.0 mensagens por minuto. Compare a entrada com a vazão do worker."
+              runbook: "docs/operacao-filas.md#alerta-filacrescendo"
+
+  - name: crescimento pequeno em fila baixa não dispara
+    interval: 10s
+    input_series:
+      - series: 'rabbitmq_detailed_queue_messages_ready{queue="analitico.recalculo-risco",vhost="/"}'
+        values: '2+0.01x180'  # quase parada e abaixo de 20 mensagens
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: FilaCrescendo
+        exp_alerts: []
+
+  # ---------- Publicação sem destino ----------
+  - name: publicação sem destino dispara; só sucesso, não
+    interval: 10s
+    input_series:
+      - series: 'academico_despachante_publicacoes_total{resultado="ok"}'
+        values: '0+5x30'
+      - series: 'academico_despachante_publicacoes_total{resultado="sem_destino"}'
+        values: '0x10 0+1x20'  # parado por 100 s; depois passa a crescer
+      - series: 'academico_despachante_publicacoes_total{resultado="recusado"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 60s
+        alertname: EventoSemDestino
+        exp_alerts: []
+      - eval_time: 200s
+        alertname: EventoSemDestino
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              resultado: sem_destino
+            exp_annotations:
+              summary: "O despachante teve publicações sem_destino nos últimos 5 minutos"
+              description: "O broker não aceitou a mensagem (sem fila ligada à exchange, ou recusa). O evento fica na outbox e é tentado de novo."
+              runbook: "docs/operacao-filas.md#alerta-eventosemdestino"
+
+  # ---------- Latência de ponta a ponta ----------
+  - name: p95 acima de 60 s dispara; p95 baixo, não
+    interval: 10s
+    input_series:
+      # Todos os eventos demoram entre 60 e 120 s: o p95 fica acima de 60 s.
+      - series: 'analitico_evento_latencia_segundos_bucket{le="60"}'
+        values: '0x60'
+      - series: 'analitico_evento_latencia_segundos_bucket{le="120"}'
+        values: '0+10x60'
+      - series: 'analitico_evento_latencia_segundos_bucket{le="+Inf"}'
+        values: '0+10x60'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ProcessamentoLento
+        exp_alerts: []        # ainda não foram 5 minutos
+      - eval_time: 9m
+        alertname: ProcessamentoLento
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "95% dos eventos levam mais de 60 s da alteração até o processamento"
+              description: "p95 de 1m 57s. A atualização do risco está atrasada."
+              runbook: "docs/operacao-filas.md#alerta-processamentolento"
+
+  - name: eventos rápidos não disparam a latência
+    interval: 10s
+    input_series:
+      - series: 'analitico_evento_latencia_segundos_bucket{le="1"}'
+        values: '0+10x80'
+      - series: 'analitico_evento_latencia_segundos_bucket{le="60"}'
+        values: '0+10x80'
+      - series: 'analitico_evento_latencia_segundos_bucket{le="+Inf"}'
+        values: '0+10x80'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ProcessamentoLento
+        exp_alerts: []
+
+  # ---------- Reconexões ----------
+  - name: mais de 3 reconexões em 10 minutos dispara; poucas, não
+    interval: 30s
+    input_series:
+      - series: 'academico_despachante_reconexoes_total{motivo="broker"}'
+        values: '0x10 0+1x10 4x20'   # 10 reconexões em ~5 minutos
+      - series: 'analitico_consumidor_reconexoes_total'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ReconexoesFrequentes
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: ReconexoesFrequentes
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Mais de 3 reconexões em 10 minutos"
+              description: "O RabbitMQ ou o banco estão instáveis para o despachante ou para o worker."
+              runbook: "docs/operacao-filas.md#alerta-reconexoesfrequentes"
+
+  - name: duas reconexões em 10 minutos não disparam
+    interval: 30s
+    input_series:
+      - series: 'academico_despachante_reconexoes_total{motivo="broker"}'
+        values: '0x10 2x30'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ReconexoesFrequentes
+        exp_alerts: []
+
+  # ---------- Despachante parado ----------
+  - name: despachante que não completa ciclo há mais de 1 minuto dispara
+    interval: 10s
+    input_series:
+      # O instante do último ciclo congela em 100: o relógio da avaliação segue andando.
+      - series: 'academico_despachante_ultimo_ciclo_timestamp_segundos'
+        values: '100x60'
+    alert_rule_test:
+      - eval_time: 120s
+        alertname: DespachanteParado
+        exp_alerts: []        # 20 s desde o último ciclo
+      - eval_time: 300s
+        alertname: DespachanteParado
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "O despachante da outbox não completa um ciclo há mais de 1 minuto"
+              description: "Travado ou preso reconectando. Os eventos esperam na outbox."
+              runbook: "docs/operacao-filas.md#alerta-despachanteparado"
+
+  # ---------- Coleta ----------
+  - name: alvo que para de responder dispara depois de 1 minuto; alvo saudável, não
+    interval: 10s
+    input_series:
+      - series: 'up{job="analitico-worker",instance="analitico-worker:9100"}'
+        values: '1x6 0x30'
+      - series: 'up{job="rabbitmq",instance="rabbitmq:15692"}'
+        values: '1x36'
+      - series: 'up{job="rabbitmq-filas",instance="rabbitmq:15692"}'
+        values: '1x36'
+      - series: 'up{job="academico-despachante",instance="academico-despachante:9100"}'
+        values: '1x36'
+    alert_rule_test:
+      - eval_time: 50s
+        alertname: ColetaDeMetricasAusente
+        exp_alerts: []
+      - eval_time: 150s
+        alertname: ColetaDeMetricasAusente
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: analitico-worker
+              instance: analitico-worker:9100
+            exp_annotations:
+              summary: "Sem métricas de analitico-worker há mais de 1 minuto"
+              description: "O alvo analitico-worker:9100 não responde à coleta. Sem métricas, os outros alertas ficam cegos para ele."
+              runbook: "docs/operacao-filas.md#alerta-coletademetricasausente"
+
+  - name: alvo que some da configuração dispara; com todos presentes, não
+    interval: 10s
+    input_series:
+      - series: 'up{job="rabbitmq",instance="rabbitmq:15692"}'
+        values: '1x36'
+      - series: 'up{job="rabbitmq-filas",instance="rabbitmq:15692"}'
+        values: '1x36'
+      - series: 'up{job="academico-despachante",instance="academico-despachante:9100"}'
+        values: '1x36'
+      # o analitico-worker NÃO tem nem a série `up`
+    alert_rule_test:
+      - eval_time: 200s
+        alertname: AlvoDeColetaSumiu
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: analitico-worker
+            exp_annotations:
+              summary: "O alvo de coleta analitico-worker não existe mais"
+              description: "Nenhuma série `up` para o alvo. A configuração da coleta mudou ou o Prometheus perdeu o alvo."
+              runbook: "docs/operacao-filas.md#alerta-coletademetricasausente"

@@ -27,6 +27,11 @@ CHAVE = "log.requisicao"
 
 logger = logging.getLogger("auth.eventos")
 
+# Broker indisponível: erros do AMQP e também os de rede. Com o contêiner do RabbitMQ parado o nome
+# dele deixa de existir na rede do Docker e o pika levanta `socket.gaierror`, que é um `OSError`
+# e NÃO um `AMQPError`. Sem capturá-lo, o processo morria em vez de reconectar.
+ERROS_DO_BROKER = (pika.exceptions.AMQPError, OSError)
+
 
 def declarar_topologia(canal: BlockingChannel) -> None:
     """Cria exchanges e filas se ainda não existirem (operação idempotente)."""
@@ -77,7 +82,7 @@ def main() -> None:
                 canal.basic_consume(queue=FILA, on_message_callback=processar)
                 logger.info("aguardando registros de auditoria")
                 canal.start_consuming()
-        except pika.exceptions.AMQPConnectionError:
+        except ERROS_DO_BROKER:
             logger.warning("RabbitMQ indisponível; nova tentativa em 5 s")
             time.sleep(5)
 

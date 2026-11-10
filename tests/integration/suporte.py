@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 import secrets
 import subprocess
@@ -50,15 +51,31 @@ def compose(
         "docker", "compose", "--env-file", str(ARQUIVO_ENV),
         "-p", PROJETO, "-f", str(ARQUIVO_COMPOSE), *args,
     ]  # fmt: skip
-    return subprocess.run(  # noqa: S603 - comando fixo, sem entrada do usuário
+    resultado = subprocess.run(  # noqa: S603 - comando fixo, sem entrada do usuário
         comando,
         capture_output=True,
         text=True,
         timeout=timeout,
-        check=check,
+        check=False,
         cwd=RAIZ,
         input=entrada,
     )
+    if check and resultado.returncode != 0:
+        # Sem isto, o erro do Compose ficaria escondido dentro de `CalledProcessError`.
+        raise RuntimeError(
+            f"docker compose {' '.join(args)} falhou (código {resultado.returncode}):\n"
+            f"{resultado.stdout[-1500:]}\n{resultado.stderr[-1500:]}"
+        )
+    return resultado
+
+
+def saude_dos_servicos() -> dict[str, str]:
+    """Saúde de cada serviço do projeto de teste (`healthy`, `unhealthy`, `starting` ou vazio)."""
+    saida = compose("ps", "-a", "--format", "json").stdout
+    return {
+        item["Service"]: item.get("Health") or item.get("State", "")
+        for item in (json.loads(linha) for linha in saida.splitlines() if linha.strip())
+    }
 
 
 def filas() -> dict[str, dict[str, int]]:
@@ -322,3 +339,48 @@ with pika.BlockingConnection(pika.URLParameters(os.environ["RABBITMQ_URL"])) as 
 def publicar_no_broker(chave: str, corpo: str) -> None:
     """Publica uma mensagem crua na exchange de eventos (simula entrega repetida ou inválida)."""
     compose("exec", "-T", "analitico", "python", "-c", PUBLICAR, chave, entrada=corpo)
+
+
+# ---------- Monitoramento (compose.monitoramento.yml, só se estiver de pé) ----------
+
+PROMETHEUS = os.environ.get("SIMPA_PROMETHEUS_URL", "http://127.0.0.1:19090")
+ALERTMANAGER = os.environ.get("SIMPA_ALERTMANAGER_URL", "http://127.0.0.1:19093")
+
+
+def monitoramento_no_ar() -> bool:
+    try:
+        return httpx.get(f"{PROMETHEUS}/-/healthy", timeout=3).status_code == 200
+    except httpx.HTTPError:
+        return False
+
+
+def alertas_do_prometheus() -> list[dict]:
+    """Alertas em estado `pending` ou `firing` agora, com os rótulos."""
+    dados = httpx.get(f"{PROMETHEUS}/api/v1/alerts", timeout=10).json()["data"]["alerts"]
+    return [{"nome": a["labels"]["alertname"], "estado": a["state"], **a["labels"]} for a in dados]
+
+
+def disparado(nome: str, **rotulos: str) -> bool:
+    """O alerta está `firing` com estes rótulos?"""
+    return any(
+        a["nome"] == nome
+        and a["estado"] == "firing"
+        and all(a.get(k) == v for k, v in rotulos.items())
+        for a in alertas_do_prometheus()
+    )
+
+
+def alertas_inibidos() -> set[str]:
+    """Nomes dos alertas que o Alertmanager recebeu mas manteve inibidos (consequência de outro)."""
+    dados = httpx.get(f"{ALERTMANAGER}/api/v2/alerts", timeout=10).json()
+    return {a["labels"]["alertname"] for a in dados if a["status"]["inhibitedBy"]}
+
+
+def notificacoes_recebidas() -> list[dict]:
+    """Tudo que o receptor LOCAL de teste recebeu do Alertmanager (nada sai para fora)."""
+    script = (
+        "import urllib.request; "
+        "print(urllib.request.urlopen('http://localhost:8080/alertas', timeout=5).read().decode())"
+    )
+    saida = compose("exec", "-T", "receptor-alertas", "python", "-c", script).stdout
+    return json.loads(saida)

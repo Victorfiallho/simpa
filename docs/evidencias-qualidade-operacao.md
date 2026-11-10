@@ -108,10 +108,30 @@ São credenciais sintéticas de um ambiente descartável, e o token vale 60 minu
 
 **Lockfile.** O `npm install` local (10.9.9) reescreveria o lockfile e apagaria os campos `libc` de dependências opcionais que já existiam. Mantive o lockfile original e acrescentei **só** as 3 entradas do Playwright (46 inserções, 0 remoções); o `npm ci` passa.
 
+## Etapa 6: monitoramento das filas
+
+Camada separada, `compose.monitoramento.yml` + `infra/monitoramento/` (Prometheus `v2.55.1`, Alertmanager `v0.27.0`, Grafana `11.3.1`, versões fixas; retenção de 15 dias ou 2 GB; painéis só em `127.0.0.1`; métricas só na rede interna). Documentação de operação, com o que fazer em cada alerta, em `docs/operacao-filas.md`.
+
+| Item do guia | O que foi feito e como foi provado |
+|---|---|
+| 6.1 Métricas | O plugin `rabbitmq_prometheus` já vem ativo no RabbitMQ 4.4.0. **Os nomes e rótulos foram listados no RabbitMQ real antes de escrever qualquer consulta** (por fila: `rabbitmq_detailed_queue_messages_ready`, `…_unacked`, `…_consumers`; globais: `rabbitmq_global_messages_*_total`). Os 4 alvos de coleta ficam `up` |
+| 6.2 Instrumentação do caminho do evento | Despachante e worker expõem `/metrics` (`prometheus-client==0.21.1`): mensagens prontas, não confirmadas e consumidores (RabbitMQ); novas mensagens na fila de falhas; taxas de publicação, entrega e confirmação; **idade do evento mais antigo na outbox**; **latência da alteração ao fim do processamento** (usa o `ocorrido_em` do envelope, não o tamanho da fila); eventos por resultado; falhas e reconexões. Nenhum rótulo com nome, e-mail, token ou id. Testes unitários para os contadores e medidores (acadêmico 167, analítico 290 testes) |
+| 6.3 Alertas | 12 regras com os limites iniciais do guia (consumidor ausente 1 min, fila de falhas, evento pendente 2 min, crescimento 5 min, coleta ausente), mais mensagem sem destino, latência, reconexões e despachante parado. **Série ausente é alerta** (`FilaEsperadaAusente`, `AlvoDeColetaSumiu`), e o painel mostra "sem dado" em vermelho. Menos ruído: `for:` em todas e 2 inibições no Alertmanager |
+| 6.3 Prova das regras | `promtool test rules`: **15 casos**, cada alerta nos dois sentidos (dispara e fica quieto). Controle negativo: com 2 regras estragadas de propósito, os testes falharam |
+| 6.4 Simulação | `tests/integration/test_monitoramento.py`, 3 cenários reais: (1) worker parado → `FilaSemConsumidor` e `ColetaDeMetricasAusente` disparam depois de 1 minuto, a notificação chega ao receptor e a normalização também; (2) evento inválido → `FilaDeFalhasRecebeuMensagens` dispara e **a fila de falhas do auth não acende**; (3) broker parado → `EventoPendenteNaOutbox`, coleta do RabbitMQ e **inibição** de `FilaEsperadaAusente` (consequência, não notificada), e o evento que esperou na outbox **chega ao histórico** depois da recuperação. **3 passam** (6m31s) |
+| Destinos | O Alertmanager entrega só a um **receptor local de teste**. Nada foi enviado a pessoas nem a canais externos |
+| Dashboard | `SIMPA — Filas de eventos` (16 painéis), provisionado; fonte de dados saudável; acesso anônimo negado (401); sem painéis com erro; conferido por captura de tela com dados reais |
+| CI | Novo job `monitoramento`: `promtool check config` e `test rules`, `amtool check-config`, JSON do dashboard e `config` do Compose. **Ainda não rodou no CI remoto** |
+
+**Regressão completa:** depois das mudanças nos laços de reconexão, a suíte entre serviços inteira passou, **16 testes** (13 + 3 do monitoramento, 8m22s). Unitários: auth 137 (94%), acadêmico 167 (88%), analítico 290 (95%).
+
 ## Defeitos reais que os testes encontraram
 
 | Defeito | Como apareceu | Correção |
 |---|---|---|
+| **Com o contêiner do RabbitMQ parado, o despachante e os dois workers morriam** em vez de reconectar. O nome do broker some da rede do Docker e o pika levanta `socket.gaierror` (um `OSError`, não um `AMQPError`), que os laços de reconexão não capturavam. Só voltavam pelo `restart` do Docker. Já existia antes do monitoramento | Etapa 6, simulação do broker parado: as métricas do despachante sumiram | `ERROS_DO_BROKER = (AMQPError, OSError)` nos 3 laços; 3 testes (um por serviço) que **falham sem a correção** |
+| **Com o broker fora, as métricas da outbox congelavam**, justamente quando o atraso mais importa: elas só eram atualizadas depois de conectar ao broker, e o alerta de evento pendente ficava cego | Etapa 6, mesma simulação: `EventoPendenteNaOutbox` não disparou em 4 minutos | As métricas da outbox são atualizadas numa thread própria, independente da conexão; o teste de simulação passou a provar o alerta |
+| Painel "Fila de falhas" ficava **verde com "sem dado"**: uma fila inexistente parecia saudável | Captura do dashboard durante a simulação | Série ausente vira "sem dado" em vermelho em todos os painéis de estado |
 | **Nenhum aluno conseguia enviar um pedido de apoio pela tela**: os 4 motivos do front ("Dificuldade no conteúdo"…) não existem na lista do backend ("Dificuldade com o conteúdo"…), e toda tentativa dava "Selecione um dos motivos da lista" | Etapa 5, cenário 7 (a conferência de contrato que eu tinha feito antes olhou os campos, não os valores permitidos) | Front com os motivos do backend e teste `test_motivos_do_front_sao_os_do_backend` (analítico), que lê o `MeuApoio.tsx` e falha se os dois divergirem |
 | **O menu lateral da gestão não rolava**: com 11 itens (1.125 px), em 1366×768 os itens "Pendências", "Auditoria" e "Meu perfil" ficavam fora da tela e inalcançáveis. Já existia; o item "Cadastros" piorou | Etapa 5: o teste do apoio falhava em 3 de 4 execuções com "element is outside of the viewport" | `overflow-y: auto` no menu (o perfil continua fixo embaixo) e `usabilidade.spec.ts` em 1280×720 e 1366×768 |
 | As telas de Lançamentos e de Inscrições carregavam só as primeiras 100 disciplinas, **sem avisar** | Etapa 5: o seletor não mostrava a disciplina nova | Aviso "Mostrando as primeiras N de M disciplinas ativas" |
@@ -134,8 +154,8 @@ O terceiro defeito importa para a etapa 6: sem a correção, um alerta de "novas
 - [x] Entrega confiável/outbox implementada e testada com broker indisponível.
 - [x] Reentrega idempotente e reprocessamento de falhas verificados.
 - [x] Testes de navegador aprovados para funcionalidades existentes (19 testes, incluindo as telas de Cadastros).
-- [ ] Métricas reais coletadas e dashboards úteis.
-- [ ] Alertas acionados e recuperados em simulação.
+- [x] Métricas reais coletadas e dashboards úteis.
+- [x] Alertas acionados e recuperados em simulação.
 - [ ] Backup íntegro, criptografado e com estratégia de consistência definida.
 - [ ] Cópia externa e recuperação da chave verificadas, ou dependência explicitada.
 - [ ] Restauração dos três bancos e das chaves aprovada em ambiente vazio.
@@ -146,8 +166,10 @@ O terceiro defeito importa para a etapa 6: sem a correção, um alerta de "novas
 
 ## Pendências e decisões
 
-- **Etapas 6 a 9 não foram iniciadas:** monitoramento das filas, backup, restauração e a integração com o CI.
+- **Etapas 7 a 9 não foram iniciadas:** backup, restauração e a integração das suítes com o CI. O monitoramento (etapa 6) está feito, com o limite abaixo.
 - **As suítes entre serviços e de navegador ainda não rodam no CI** (etapa 9): hoje rodam localmente contra o `compose.test.yml`. Só o teste de contrato dos valores (`tests/contrato`), que não precisa do ambiente, já roda no CI.
+- **Alertas com limites iniciais:** os limites (1 min, 2 min, 5 min, 60 s) são os do guia e precisam ser ajustados depois de observar carga real. O destino dos alertas é um receptor local de teste: para e-mail ou chat é preciso decidir o canal e ter autorização.
+- **Monitoramento só no ambiente de teste:** foi validado com `compose.test.yml`. A camada também funciona sobre o `docker-compose.yml` de desenvolvimento (a configuração é válida), mas esse uso não foi exercitado de ponta a ponta.
 - **Filtro global de turmas** (cabeçalho do painel, `App.tsx`): também carrega só as 100 primeiras turmas em ordem alfabética, sem aviso. Fica fora desta correção e vale tratar junto com uma busca por turma.
 - **Topologia já existente:** a exchange `simpa.eventos.falhas` (`fanout`) ficou como legado, porque trocar o argumento da fila principal exigiria recriá-la. Num ambiente com dados, a migração é: esvaziar a fila principal, apagar a fila e subir o worker novo.
 - **Cópia externa do backup e a chave de criptografia** dependem de infraestrutura que ainda não foi definida.

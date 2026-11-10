@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from prometheus_client import REGISTRY
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -11,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app.clientes import academico
 from app.core.database import Base
 from app.core.excecoes import RecursoNaoEncontrado
-from app.events import consumidor
+from app.events import consumidor, metricas
 from app.models import ResultadoRisco
 from app.services import eventos as eventos_servico
 from app.services import risco
@@ -253,3 +254,101 @@ def test_topologia_declara_as_filas_de_espera_ligadas_a_fila_principal():
             str(segundos),
         ) in canal.ligacoes
     assert canal.filas[consumidor.FILA]["x-dead-letter-exchange"] == consumidor.EXCHANGE_FALHAS
+
+
+# ---------- Métricas (etapa 6) ----------
+
+
+def contado(resultado: str) -> float:
+    return REGISTRY.get_sample_value("analitico_eventos_total", {"resultado": resultado}) or 0.0
+
+
+def test_evento_processado_conta_ok_e_mede_a_latencia_de_ponta_a_ponta(banco, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    monkeypatch.setattr(
+        academico, "buscar_inscricao", lambda _id: inscricao(1, 1, "Ana", "EST", RUIM)
+    )
+    antes_ok = contado("ok")
+    antes_n = REGISTRY.get_sample_value("analitico_evento_latencia_segundos_count") or 0.0
+    antes_soma = REGISTRY.get_sample_value("analitico_evento_latencia_segundos_sum") or 0.0
+    ocorrido = (datetime.now(UTC) - timedelta(seconds=3)).isoformat()
+
+    consumidor.processar(CanalFalso(), entrega(), propriedades(), mensagem(ocorrido_em=ocorrido))
+
+    assert contado("ok") == antes_ok + 1
+    assert REGISTRY.get_sample_value("analitico_evento_latencia_segundos_count") == antes_n + 1
+    soma = REGISTRY.get_sample_value("analitico_evento_latencia_segundos_sum") - antes_soma
+    assert 3 <= soma < 6, "a latência é do instante da alteração até o fim do processamento"
+
+
+def test_evento_sem_ocorrido_em_conta_ok_mas_nao_entra_na_latencia(banco, monkeypatch):
+    monkeypatch.setattr(
+        academico, "buscar_inscricao", lambda _id: inscricao(1, 1, "Ana", "EST", RUIM)
+    )
+    antes_n = REGISTRY.get_sample_value("analitico_evento_latencia_segundos_count") or 0.0
+
+    consumidor.processar(CanalFalso(), entrega(), propriedades(), mensagem())
+
+    assert REGISTRY.get_sample_value("analitico_evento_latencia_segundos_count") == antes_n
+
+
+def test_cada_destino_do_evento_conta_no_seu_resultado(banco, monkeypatch):
+    antes = {r: contado(r) for r in metricas.RESULTADOS}
+
+    # repetido: já processado
+    monkeypatch.setattr(consumidor.eventos, "ja_processado", lambda _id: True)
+    consumidor.processar(CanalFalso(), entrega(), propriedades(), mensagem(event_id="x"))
+    monkeypatch.undo()
+    # inválido
+    consumidor.processar(CanalFalso(), entrega(), propriedades(), b"isto nao e json")
+    # falha passageira: vai para a espera
+    falha_no_academico(monkeypatch)
+    consumidor.processar(CanalFalso(), entrega(), propriedades(), mensagem())
+    # tentativas esgotadas: vai para a fila de falhas
+    limite = len(consumidor.ESPERAS)
+    consumidor.processar(
+        CanalFalso(), entrega(), propriedades(**{"x-tentativas": limite}), mensagem()
+    )
+
+    depois = {r: contado(r) for r in metricas.RESULTADOS}
+    assert {r: depois[r] - antes[r] for r in metricas.RESULTADOS} == {
+        "ok": 0,
+        "repetido": 1,
+        "invalido": 1,
+        "retentativa": 1,
+        "falha": 1,
+    }
+
+
+class _Sair(BaseException):
+    """Interrompe o laço infinito do `main` depois que o que interessa foi observado."""
+
+
+def test_nome_do_broker_que_nao_resolve_faz_reconectar_em_vez_de_derrubar_o_worker(monkeypatch):
+    """Com o contêiner do RabbitMQ parado, o nome dele some da rede do Docker.
+
+    O pika levanta `socket.gaierror` (um `OSError`, não um `AMQPError`). O worker tem de tratar como
+    broker indisponível e tentar de novo, em vez de morrer e depender do restart do Docker.
+    """
+    import socket
+
+    tentativas = []
+
+    def conectar(_parametros):
+        tentativas.append(1)
+        if len(tentativas) == 1:
+            raise socket.gaierror(-2, "Name or service not known")
+        raise _Sair
+
+    monkeypatch.setattr(consumidor.pika, "BlockingConnection", conectar)
+    monkeypatch.setattr(consumidor.time, "sleep", lambda _segundos: None)
+    monkeypatch.setattr(consumidor, "configurar_logs", lambda _nome: None)
+    monkeypatch.setattr(metricas, "iniciar_servidor", lambda _porta: None)
+    antes = REGISTRY.get_sample_value("analitico_consumidor_reconexoes_total")
+
+    with pytest.raises(_Sair):
+        consumidor.main()
+
+    assert len(tentativas) == 2, "depois da falha de nome, tentou conectar de novo"
+    assert REGISTRY.get_sample_value("analitico_consumidor_reconexoes_total") == antes + 1

@@ -14,6 +14,7 @@ Tratamento de cada mensagem:
 
 import json
 import logging
+import os
 import time
 from datetime import UTC, datetime
 
@@ -23,6 +24,7 @@ from pika.spec import Basic, BasicProperties
 
 from app.core.config import get_settings
 from app.core.logs import configurar_logs, request_id_atual
+from app.events import metricas
 from app.services import eventos
 from app.services.risco import recalcular_risco_da_inscricao
 
@@ -39,6 +41,11 @@ CHAVES = ("avaliacao.*", "frequencia.*", "inscricao.*")
 ESPERAS = (5, 30, 120)
 
 logger = logging.getLogger("analitico.eventos")
+
+# Broker indisponível: erros do AMQP e também os de rede. Com o contêiner do RabbitMQ parado o nome
+# dele deixa de existir na rede do Docker e o pika levanta `socket.gaierror`, que é um `OSError`
+# e NÃO um `AMQPError`. Sem capturá-lo, o processo morria em vez de reconectar.
+ERROS_DO_BROKER = (pika.exceptions.AMQPError, OSError)
 
 
 def fila_de_espera(segundos: int) -> str:
@@ -117,11 +124,13 @@ def _tentar_de_novo(
     tentativas = int(cabecalhos.get("x-tentativas", 0))
     motivo = f"{type(erro).__name__}: {erro}"
     if tentativas >= len(ESPERAS):
+        metricas.EVENTOS.labels("falha").inc()
         cabecalhos["x-tentativas"] = tentativas
         _para_a_fila_de_falhas(
             canal, metodo, propriedades, corpo, f"tentativas esgotadas: {motivo}"
         )
         return
+    metricas.EVENTOS.labels("retentativa").inc()
     espera = ESPERAS[tentativas]
     cabecalhos.update({"x-tentativas": tentativas + 1, "x-ultimo-erro": motivo[:300]})
     canal.basic_publish(
@@ -144,18 +153,21 @@ def processar(
             mensagem = json.loads(corpo)
             inscricao_id = int(mensagem["dados"]["inscricao_id"])
         except (ValueError, KeyError, TypeError) as erro:
+            metricas.EVENTOS.labels("invalido").inc()
             _para_a_fila_de_falhas(canal, metodo, propriedades, corpo, f"evento inválido: {erro!r}")
             return
 
         request_id_atual.set(mensagem.get("request_id", "-"))
         evento_id = mensagem.get("event_id")
         if evento_id and eventos.ja_processado(evento_id):
+            metricas.EVENTOS.labels("repetido").inc()
             logger.info("evento repetido ignorado", extra={"dados": {"event_id": evento_id}})
             canal.basic_ack(delivery_tag=metodo.delivery_tag)
             return
 
         try:
-            recalcular_risco_da_inscricao(inscricao_id)
+            with metricas.PROCESSAMENTO.time():
+                recalcular_risco_da_inscricao(inscricao_id)
             if evento_id:
                 eventos.marcar_processado(evento_id)
         except Exception as erro:
@@ -165,12 +177,15 @@ def processar(
             _tentar_de_novo(canal, metodo, propriedades, corpo, erro)
             return
         canal.basic_ack(delivery_tag=metodo.delivery_tag)
+        metricas.EVENTOS.labels("ok").inc()
+        metricas.observar_latencia(mensagem.get("ocorrido_em"))
     finally:
         request_id_atual.reset(token)
 
 
 def main() -> None:
     configurar_logs("analitico")
+    metricas.iniciar_servidor(int(os.environ.get("METRICAS_PORTA", "9100")))
     parametros = pika.URLParameters(get_settings().rabbitmq_url)
     while True:
         try:
@@ -182,7 +197,8 @@ def main() -> None:
                 canal.basic_consume(queue=FILA, on_message_callback=processar)
                 logger.info("aguardando eventos", extra={"dados": {"fila": FILA}})
                 canal.start_consuming()
-        except pika.exceptions.AMQPError:
+        except ERROS_DO_BROKER:
+            metricas.RECONEXOES.inc()
             logger.warning("RabbitMQ indisponível; nova tentativa em 5 s")
             time.sleep(5)
 

@@ -162,3 +162,44 @@ def test_queda_entre_o_envio_e_a_marcacao_reenvia_o_mesmo_evento(fabrica):
 
     assert [p["message_id"] for p in canal.publicados] == [id_, id_]
     assert linhas(fabrica)[0].enviado_em is not None
+
+
+class _Sair(BaseException):
+    """Interrompe o laço infinito do `main` depois que o que interessa foi observado."""
+
+
+def test_nome_do_broker_que_nao_resolve_faz_reconectar_em_vez_de_derrubar_o_processo(monkeypatch):
+    """Com o contêiner do RabbitMQ parado, o nome dele some da rede do Docker.
+
+    O pika levanta `socket.gaierror` (um `OSError`, não um `AMQPError`). O despachante tem de tratar
+    como broker indisponível e tentar de novo, em vez de morrer e depender do restart do Docker.
+    """
+    import socket
+    from types import SimpleNamespace
+
+    from prometheus_client import REGISTRY
+
+    tentativas = []
+
+    def conectar(_parametros):
+        tentativas.append(1)
+        if len(tentativas) == 1:
+            raise socket.gaierror(-2, "Name or service not known")
+        raise _Sair
+
+    monkeypatch.setattr(despachante.pika, "BlockingConnection", conectar)
+    monkeypatch.setattr(despachante.time, "sleep", lambda _segundos: None)
+    monkeypatch.setattr(despachante, "get_sessionmaker", lambda: None)
+    monkeypatch.setattr(despachante, "configurar_logs", lambda _nome: None)
+    monkeypatch.setattr(despachante.metricas, "iniciar_servidor", lambda _porta: None)
+    monkeypatch.setattr(
+        despachante.threading, "Thread", lambda **_k: SimpleNamespace(start=lambda: None)
+    )
+    rotulo = {"motivo": "broker"}
+    antes = REGISTRY.get_sample_value("academico_despachante_reconexoes_total", rotulo)
+
+    with pytest.raises(_Sair):
+        despachante.main()
+
+    assert len(tentativas) == 2, "depois da falha de nome, tentou conectar de novo"
+    assert REGISTRY.get_sample_value("academico_despachante_reconexoes_total", rotulo) == antes + 1
