@@ -220,7 +220,7 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [ ] Relatório técnico final: arquitetura, justificativa das análises, exemplos de indicadores e reflexão sobre o processo
 - [ ] README final com passo a passo completo e prints
 - [ ] Roteiro do pitch e ensaio cronometrado da demonstração
-- [ ] Lista de melhorias futuras (ex.: deploy em nuvem, *outbox* para garantir a publicação dos eventos, HTTPS no gateway)
+- [ ] Lista de melhorias futuras (ex.: deploy em nuvem, HTTPS no gateway; o *outbox* dos eventos já foi feito, D14)
 
 **✔ Pronto quando:** todos os critérios de aceitação do SRS passam, o CI está verde, a matriz de rastreabilidade está completa e a demonstração roda do zero seguindo só o README.
 

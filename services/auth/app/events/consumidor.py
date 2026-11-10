@@ -47,10 +47,22 @@ def processar(
         with get_sessionmaker()() as db:
             gravar_registro(db, mensagem["dados"])
         canal.basic_ack(delivery_tag=metodo.delivery_tag)
-    except Exception:
+    except Exception as erro:
         # Sem o corpo no log: ele traz IP e rota de um usuário.
         logger.exception("falha ao gravar auditoria")
-        canal.basic_nack(delivery_tag=metodo.delivery_tag, requeue=False)
+        # Direto na fila de falhas do auth (exchange padrão). Um `nack` sem reenfileirar passaria
+        # pela exchange de falhas, que é `fanout` e também entregaria à do analítico.
+        canal.basic_publish(
+            "",
+            FILA_FALHAS,
+            corpo,
+            pika.BasicProperties(
+                content_type="application/json",
+                delivery_mode=pika.DeliveryMode.Persistent,
+                headers={"x-erro": f"{type(erro).__name__}: {erro}"[:300], "x-chave": CHAVE},
+            ),
+        )
+        canal.basic_ack(delivery_tag=metodo.delivery_tag)
 
 
 def main() -> None:

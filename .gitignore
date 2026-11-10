@@ -19,6 +19,10 @@ htmlcov/
 
 # Segredos e configuração local (RNF04 — nunca versionar)
 .env
+.env.test
+.env.restore-test
+backup.test.toml
+restore.test.toml
 chaves/
 *.pem
 

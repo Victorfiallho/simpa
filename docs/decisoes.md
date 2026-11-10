@@ -125,8 +125,10 @@ Formato de cada decisão: **Problema → Opções consideradas → Decisão → 
   - **Auditoria (RF12):** ao fim de cada requisição (exceto `/health` e `/internal`), cada serviço publica `log.requisicao {correlation_id, usuario_id, rota, metodo_http, status_http, ip_origem, tempo_resposta_ms, timestamp}`; o worker do auth (`auth-worker`) grava em `LogRequisicao`. Só esses campos saem do serviço: nunca corpo, cabeçalhos, query string, senha, token ou CPF (CPF no caminho é mascarado). A gravação é idempotente pelo `correlation_id` único.
 - **Por que eventos no recálculo do risco:** o lançamento da nota não espera o cálculo, e se o analítico estiver fora do ar as mensagens ficam guardadas na fila até ele voltar.
 - **Regras:**
-  - Publicar o evento só **depois** do commit, para não anunciar algo que foi desfeito.
-  - O consumidor confirma (ack) a mensagem só depois de processá-la. Se falhar, ela vai para a fila `analitico.recalculo-risco.falhas`, visível no painel do RabbitMQ.
+  - **Outbox:** o acadêmico não publica direto. A alteração e o evento são gravados na **mesma transação** (tabela `evento_outbox`); o container `academico-despachante` publica no RabbitMQ com confirmação (*publisher confirm*) e `mandatory`, e só marca `enviado_em` depois da confirmação. Com o broker fora do ar, ou sem fila ligada, o evento espera na tabela (espera progressiva de 2 s até 5 min) e sai quando houver destino. Nada é perdido por queda do RabbitMQ.
+  - **Pelo menos uma vez:** se o despachante cair entre o envio e a marcação, o evento é enviado de novo. Todo evento leva um `event_id` (UUID) e o `ocorrido_em`; o worker anota os ids tratados em `evento_processado` e ignora repetições.
+  - O consumidor confirma (ack) a mensagem só depois de processá-la. Falha passageira (acadêmico fora do ar, banco indisponível) volta pelas filas de espera, depois de 5 s, 30 s e 2 min. Evento inválido, ou com as tentativas esgotadas, vai para a fila `analitico.recalculo-risco.falhas`, com o motivo nos cabeçalhos (`x-erro`). O reprocessamento é feito por `python -m app.comandos.reprocessar_falhas` (ver `docs/operacao-filas.md`).
+  - A falha vai **direto** para a fila de falhas do próprio serviço. A exchange `simpa.eventos.falhas` é `fanout` e entregaria a mensagem também à fila de falhas do outro serviço.
   - O `request_id` da requisição original viaja dentro do evento, para os logs dos dois serviços poderem ser ligados (RF12).
 
 ## D15 — Tokens assinados só pelo auth (RS256 + JWKS)

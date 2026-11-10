@@ -6,6 +6,7 @@ Todos os models precisam ser importados aqui: o Alembic depende disso para gerar
 from app.models.aluno import Aluno
 from app.models.avaliacao import Avaliacao
 from app.models.disciplina import Disciplina
+from app.models.evento_outbox import EventoOutbox
 from app.models.frequencia import Frequencia
 from app.models.inscricao import Inscricao
 from app.models.registro_semanal import RegistroSemanal
@@ -15,6 +16,7 @@ __all__ = [
     "Aluno",
     "Avaliacao",
     "Disciplina",
+    "EventoOutbox",
     "Frequencia",
     "Inscricao",
     "RegistroSemanal",

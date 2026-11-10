@@ -1,0 +1,205 @@
+# SIMPA: ambiente ISOLADO para os testes entre serviços e de interface.
+#
+# Uso (sempre com o arquivo e o nome do projeto explícitos, para não carregar o
+# docker-compose.override.yml de desenvolvimento nem tocar nos volumes de outro ambiente):
+#
+#   docker compose --env-file .env.test -p simpa-test -f compose.test.yml up -d --wait
+#
+# - Rede e volumes próprios do projeto `simpa-test`: nada de `external`, `container_name`,
+#   `network_mode: host` ou nome global de volume.
+# - Só o gateway publica porta, e apenas em 127.0.0.1:18080. PostgreSQL e RabbitMQ ficam
+#   dentro da rede do projeto.
+# - Credenciais e dados exclusivamente sintéticos, lidos do `.env.test` (copie de
+#   `.env.test.example`; o `.env.test` não vai para o Git).
+# - Usuários de teste: o auth sobe com USUARIOS_DEMO só aqui, nunca em produção.
+
+name: simpa-test
+
+x-api-python: &api-python
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+    interval: 5s
+    timeout: 5s
+    retries: 20
+    start_period: 20s
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina no .env.test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env.test}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-dados:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?defina no .env.test}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina no .env.test}
+    volumes:
+      - rabbitmq-dados:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  auth:
+    <<: *api-python
+    image: simpa-test/auth:local
+    build: ./services/auth
+    environment: &auth-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth_db
+      ROOT_PATH: /api/auth
+      JWT_EXPIRA_MINUTOS: ${JWT_EXPIRA_MINUTOS:-60}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      # Usuários de teste (admin, coordenacao, ana/bruno/carla): só neste ambiente.
+      USUARIOS_DEMO: "true"
+      DEMO_SENHA: ${DEMO_SENHA:?defina no .env.test}
+    volumes:
+      - auth-chaves:/servico/chaves
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Pronto só quando a fila de auditoria existe e tem consumidor: container em execução,
+  # sozinho, não prova que o worker está ouvindo.
+  auth-worker:
+    image: simpa-test/auth:local
+    command: ["python", "-m", "app.events.consumidor"]
+    restart: unless-stopped
+    environment: *auth-env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys, pika; c = pika.BlockingConnection(pika.URLParameters(os.environ['RABBITMQ_URL'])); sys.exit(0 if c.channel().queue_declare('auth.auditoria', passive=True).method.consumer_count >= 1 else 1)"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+
+  academico:
+    <<: *api-python
+    image: simpa-test/academico:local
+    build: ./services/academico
+    environment: &academico-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/academico_db
+      ROOT_PATH: /api/academico
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      AUTH_JWKS_URL: http://auth:8000/.well-known/jwks.json
+      AUTH_URL: http://auth:8000
+      DEMO_SENHA: ${DEMO_SENHA:?defina no .env.test}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+
+  # Publica a outbox do acadêmico no RabbitMQ. Pronto quando o ciclo de despacho está rodando.
+  academico-despachante:
+    image: simpa-test/academico:local
+    command: ["python", "-m", "app.events.despachante"]
+    restart: unless-stopped
+    environment: *academico-env
+    healthcheck:
+      # O despachante toca este arquivo a cada ciclo; sem toque há 30 s, algo travou.
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/despachante.ativo') < 30 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      academico:
+        condition: service_healthy
+
+  analitico:
+    <<: *api-python
+    image: simpa-test/analitico:local
+    build: ./services/analitico
+    environment: &analitico-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/analitico_db
+      ROOT_PATH: /api/analitico
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      AUTH_JWKS_URL: http://auth:8000/.well-known/jwks.json
+      ACADEMICO_URL: http://academico:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+
+  # Pronto só com a fila declarada e um consumidor conectado. Os testes lançam notas logo
+  # depois do `up --wait`; sem a fila ligada à exchange, o evento não teria para onde ir.
+  analitico-worker:
+    image: simpa-test/analitico:local
+    command: ["python", "-m", "app.events.consumidor"]
+    restart: unless-stopped
+    environment: *analitico-env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys, pika; c = pika.BlockingConnection(pika.URLParameters(os.environ['RABBITMQ_URL'])); sys.exit(0 if c.channel().queue_declare('analitico.recalculo-risco', passive=True).method.consumer_count >= 1 else 1)"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      analitico:
+        condition: service_healthy
+
+  frontend:
+    image: simpa-test/frontend:local
+    build: ./frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/api/auth/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      auth:
+        condition: service_healthy
+      academico:
+        condition: service_healthy
+      analitico:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+volumes:
+  postgres-dados:
+  rabbitmq-dados:
+  auth-chaves:

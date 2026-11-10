@@ -13,9 +13,13 @@ class _CanalFalso:
     def __init__(self):
         self.acks: list[int] = []
         self.nacks: list[int] = []
+        self.falhas: list[tuple[str, bytes]] = []
 
     def basic_ack(self, delivery_tag):
         self.acks.append(delivery_tag)
+
+    def basic_publish(self, exchange, routing_key, body, properties):
+        self.falhas.append((exchange, body))
 
     def basic_nack(self, delivery_tag, requeue):
         assert requeue is False
@@ -51,5 +55,7 @@ def test_evento_invalido_vai_para_a_fila_de_falhas():
 
     consumidor.processar(canal, _metodo(), None, b"isto nao e json")
 
-    assert canal.acks == []
-    assert canal.nacks == [1]
+    # Vai para a fila de falhas com o motivo, e a original é confirmada (não fica reentregando).
+    assert canal.acks == [1]
+    assert canal.nacks == []
+    assert canal.falhas == [("", b"isto nao e json")]
