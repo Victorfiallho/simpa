@@ -4,7 +4,7 @@ Registro de execução do guia `plano-execucao-qualidade-operacao.md` (10/11/202
 
 ## Decisão registrada: RPO e RTO
 
-O responsável aceitou a proposta do guia: **backup diário**, 7 cópias diárias, 4 semanais e teste de restauração semanal. Com isso o **RPO é de até cerca de 24 horas** de alterações. O **RTO ainda não tem valor**: só será declarado depois de medir uma restauração (etapa 8). Se perder um dia de dados for inaceitável, o caminho é recuperação contínua com WAL/PITR, que fica fora desta proposta.
+O responsável aceitou a proposta do guia: **backup diário**, 7 cópias diárias, 4 semanais e teste de restauração semanal. Com isso o **RPO é de até cerca de 24 horas** de alterações. O **RTO** foi medido uma vez (etapa 8): 30 s numa base de teste pequena; não é promessa para produção. Se perder um dia de dados for inaceitável, o caminho é recuperação contínua com WAL/PITR, que fica fora desta proposta.
 
 ## Estado de partida (etapa 2)
 
@@ -125,6 +125,30 @@ Camada separada, `compose.monitoramento.yml` + `infra/monitoramento/` (Prometheu
 
 **Regressão completa:** depois das mudanças nos laços de reconexão, a suíte entre serviços inteira passou, **16 testes** (13 + 3 do monitoramento, 8m22s). Unitários: auth 137 (94%), acadêmico 167 (88%), analítico 290 (95%).
 
+## Etapa 8: restauração verificada (etapa 7 só em versão mínima)
+
+Como a etapa 8 precisa de um pacote para restaurar, foi feito **só o produtor mínimo** de backup; o resto da etapa 7 ficou de fora (ver pendências).
+
+**O que existe** (`scripts/backup/`):
+- `cripto.py`: AES-256-GCM em blocos de 1 MiB (STREAM). O bloco final é marcado nos dados autenticados, então truncar, trocar blocos de ordem ou acrescentar lixo é detectado. A chave vem de arquivo `0600` (nunca da linha de comando) e fica fora do pacote.
+- `criar_backup.py`: **janela controlada** para a consistência entre os três bancos. As APIs param, a outbox e as filas esvaziam, os workers param, o dump é feito e tudo volta no `finally`. Escreve `.parcial` e renomeia; nunca sobrescreve. O pacote tem os três bancos (`pg_dump -Fc`), os papéis do PostgreSQL (guardados, não aplicados), o par de chaves de assinatura do auth e um manifesto (commit, versão do PostgreSQL, migração de cada serviço, hash de cada arquivo; sem senhas).
+- `restaurar_backup.py`: só aceita destino `simpa-test*`/`simpa-restore-test*` e exige repetir o nome em `--confirmo-destino`; recusa chave errada, pacote corrompido ou truncado, hash diferente do manifesto, tar com caminho perigoso, banco de destino com tabelas e migração diferente da esperada pela imagem. Cada banco entra com `pg_restore --single-transaction --exit-on-error`. As chaves vão para o volume do destino antes de o auth subir.
+- `provar_restauracao.py` + `compose.restore-test.yml`: ambiente próprio (`simpa-restore-test`, porta 18081, volumes próprios, **sem `USUARIOS_DEMO`**, então os usuários só existem se vieram do backup).
+
+**Resultado da prova ao vivo (origem parada durante a verificação): APROVADO**
+
+| Conferência | Resultado |
+|---|---|
+| JWKS do restaurado idêntico ao da origem; token emitido na origem aceito | ✅ |
+| Login de administrador e professor (usuários vieram do backup) | ✅ |
+| Relatório de inscrições idêntico (461 linhas), notas e histórico de risco idênticos | ✅ |
+| Dado criado **depois** do backup não existe no restaurado (mostra o ponto de recuperação) | ✅ |
+| Mudança nova no restaurado é processada pelo worker e gera histórico | ✅ |
+
+**Medidas (ambiente de teste, base pequena, ~560 KB cifrados):** backup 47 s no total, com 15 s sem escrita; restauração dos três bancos 0,2 s cada, chaves 0,4 s; **do início da restauração até o login funcionando: 30 s**. Valores de uma base pequena, em uma máquina: servem de piso, não de promessa para produção. **RTO medido só vale para este tamanho de dados**; com volume real é preciso repetir.
+
+**Recusas conferidas:** destino de desenvolvimento (`simpa`), destino não vazio (nada escrito), byte alterado, arquivo truncado, chave errada, versão de migração diferente. Testes sem Docker em `tests/backup/` (22 testes); as recusas com Docker foram executadas à mão e constam acima.
+
 ## Defeitos reais que os testes encontraram
 
 | Defeito | Como apareceu | Correção |
@@ -156,17 +180,17 @@ O terceiro defeito importa para a etapa 6: sem a correção, um alerta de "novas
 - [x] Testes de navegador aprovados para funcionalidades existentes (19 testes, incluindo as telas de Cadastros).
 - [x] Métricas reais coletadas e dashboards úteis.
 - [x] Alertas acionados e recuperados em simulação.
-- [ ] Backup íntegro, criptografado e com estratégia de consistência definida.
+- [~] Backup íntegro, criptografado e com estratégia de consistência definida. **Feito na versão mínima (janela controlada, AES-256-GCM, manifesto com hashes); faltam retenção, agendamento e simulação de falha do backup.**
 - [ ] Cópia externa e recuperação da chave verificadas, ou dependência explicitada.
-- [ ] Restauração dos três bancos e das chaves aprovada em ambiente vazio.
-- [ ] Aplicação restaurada processa uma nova alteração corretamente.
-- [~] RPO/RTO definidos e resultados medidos. **RPO definido (backup diário, cerca de 24 h); RTO ainda sem medição.**
+- [x] Restauração dos três bancos e das chaves aprovada em ambiente vazio.
+- [x] Aplicação restaurada processa uma nova alteração corretamente.
+- [~] RPO/RTO definidos e resultados medidos. **RPO definido (backup diário, cerca de 24 h); RTO medido em 30 s numa base pequena, a repetir com volume real.**
 - [ ] CI implementado; resultado remoto registrado quando executado.
 - [~] Documentação de operação e evidências entregue sem segredos. **Feita para as filas (`docs/operacao-filas.md`); faltam backup e restauração.**
 
 ## Pendências e decisões
 
-- **Etapas 7 a 9 não foram iniciadas:** backup, restauração e a integração das suítes com o CI. O monitoramento (etapa 6) está feito, com o limite abaixo.
+- **Etapa 7 pulada a pedido, exceto o produtor mínimo; etapa 9 não iniciada.** Da etapa 7 faltam: política de retenção (7 diárias, 4 semanais), agendamento/automação, cópia externa, conferência da custódia da chave e simulação de falha do backup (disco cheio, container parado no meio). Sem agendamento, hoje o backup só existe se alguém o rodar. A etapa 9 é a integração das suítes com o CI. O monitoramento (etapa 6) está feito, com o limite abaixo.
 - **As suítes entre serviços e de navegador ainda não rodam no CI** (etapa 9): hoje rodam localmente contra o `compose.test.yml`. Só o teste de contrato dos valores (`tests/contrato`), que não precisa do ambiente, já roda no CI.
 - **Alertas com limites iniciais:** os limites (1 min, 2 min, 5 min, 60 s) são os do guia e precisam ser ajustados depois de observar carga real. O destino dos alertas é um receptor local de teste: para e-mail ou chat é preciso decidir o canal e ter autorização.
 - **Monitoramento só no ambiente de teste:** foi validado com `compose.test.yml`. A camada também funciona sobre o `docker-compose.yml` de desenvolvimento (a configuração é válida), mas esse uso não foi exercitado de ponta a ponta.
