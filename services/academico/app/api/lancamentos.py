@@ -3,10 +3,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query, status
+from sqlalchemy import select
 
 from app.api.dependencias import EXIGE_GESTOR, Lancador, Pagina, Sessao, Usuario
 from app.core.respostas import Resposta, RespostaPaginada, resposta, resposta_paginada
-from app.models import Avaliacao, Frequencia, RegistroSemanal
+from app.models import Avaliacao, Frequencia, Inscricao, RegistroSemanal
 from app.repositories.academico import (
     AvaliacaoRepositorio,
     FrequenciaRepositorio,
@@ -32,6 +33,14 @@ inscricoes = APIRouter(prefix="/inscricoes", tags=["Inscrições"])
 avaliacoes = APIRouter(prefix="/avaliacoes", tags=["Avaliações"])
 frequencias = APIRouter(prefix="/frequencias", tags=["Frequências"])
 semanas = APIRouter(prefix="/semanas", tags=["Registro semanal"])
+
+
+def _da_disciplina(coluna, disciplina_id: int | None):
+    """Filtro opcional: só os lançamentos das inscrições de uma disciplina."""
+    if disciplina_id is None:
+        return []
+    return [coluna.in_(select(Inscricao.id).where(Inscricao.disciplina_id == disciplina_id))]
+
 
 # ---------- Inscrições ----------
 
@@ -97,11 +106,13 @@ def listar_avaliacoes(
     usuario: Usuario,
     inscricao_id: int | None = None,
     periodo_avaliacao: str | None = None,
+    disciplina_id: int | None = None,
 ):
     itens, total = AvaliacaoRepositorio(db).listar(
         pagina,
         {"inscricao_id": inscricao_id, "periodo_avaliacao": periodo_avaliacao},
-        escopo.condicao_por_inscricao(usuario, Avaliacao.inscricao_id),
+        escopo.condicao_por_inscricao(usuario, Avaliacao.inscricao_id)
+        + _da_disciplina(Avaliacao.inscricao_id, disciplina_id),
     )
     return resposta_paginada(AvaliacaoLeitura, itens, total, pagina.pagina, pagina.limite)
 
@@ -143,11 +154,13 @@ def listar_frequencias(
     usuario: Usuario,
     inscricao_id: int | None = None,
     periodo_avaliacao: str | None = None,
+    disciplina_id: int | None = None,
 ):
     itens, total = FrequenciaRepositorio(db).listar(
         pagina,
         {"inscricao_id": inscricao_id, "periodo_avaliacao": periodo_avaliacao},
-        escopo.condicao_por_inscricao(usuario, Frequencia.inscricao_id),
+        escopo.condicao_por_inscricao(usuario, Frequencia.inscricao_id)
+        + _da_disciplina(Frequencia.inscricao_id, disciplina_id),
     )
     return resposta_paginada(FrequenciaLeitura, itens, total, pagina.pagina, pagina.limite)
 

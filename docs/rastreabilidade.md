@@ -8,9 +8,9 @@ Estado conferido em 2026-11-09. A coluna **Situação** diz o que está comprova
 
 | Req. | Descrição | Implementação (models, services, rotas) | Verificação | Situação |
 |---|---|---|---|---|
-| RF01 | Cadastro de alunos | `AC/app/models/aluno.py`, `AC/app/schemas/aluno.py`, `AC/app/services/cadastros.py`, `AC/app/api/cadastros.py` (`/alunos`); front `Alunos.tsx` | `AC/tests/test_cadastros.py` (matrícula única, CPF inválido e mascarado, exclusão lógica) | ✅ |
-| RF02 | Turmas e disciplinas | `AC/app/models/{turma,disciplina}.py`, `AC/app/services/cadastros.py`, `AC/app/api/cadastros.py` (`/turmas`, `/disciplinas`) | `AC/tests/test_cadastros.py`, `AC/tests/test_lancamentos.py` (turma encerrada bloqueia lançamentos, D10) | ✅ |
-| RF03 | Avaliações e frequência | `AC/app/models/{avaliacao,frequencia,inscricao,registro_semanal}.py`, `AC/app/services/lancamentos.py`, `AC/app/api/lancamentos.py`; eventos em `AC/app/events/` | `AC/tests/test_lancamentos.py`, `AC/tests/test_semanas.py`, `AN/tests/test_eventos.py` | ✅ |
+| RF01 | Cadastro de alunos | `AC/app/models/aluno.py`, `AC/app/schemas/aluno.py`, `AC/app/services/cadastros.py`, `AC/app/api/cadastros.py` (`/alunos`); front `Cadastros.tsx` (aba Alunos: cadastrar, editar, inativar) | `AC/tests/test_cadastros.py` (matrícula única, CPF inválido e mascarado, exclusão lógica) | ✅ |
+| RF02 | Turmas e disciplinas | `AC/app/models/{turma,disciplina}.py`, `AC/app/services/cadastros.py`, `AC/app/api/cadastros.py` (`/turmas`, `/disciplinas`); front `Cadastros.tsx` (abas Turmas, Disciplinas e Inscrições) | `AC/tests/test_cadastros.py`, `AC/tests/test_lancamentos.py` (turma encerrada bloqueia lançamentos, D10) | ✅ |
+| RF03 | Avaliações e frequência | `AC/app/models/{avaliacao,frequencia,inscricao,registro_semanal}.py`, `AC/app/services/lancamentos.py`, `AC/app/api/lancamentos.py` (filtro `disciplina_id` nas listagens); eventos em `AC/app/events/`; front `Lancamentos.tsx` | `AC/tests/test_lancamentos.py` (inclui `test_lancamentos_filtram_por_disciplina`), `AC/tests/test_semanas.py`, `AN/tests/test_eventos.py`; telas conferidas de ponta a ponta no navegador em 2026-11-10 | ✅ |
 | RF04 | Consulta integrada do aluno | `GET /alunos/{id}` e `GET /alunos/matricula/{matricula}` em `AC/app/api/cadastros.py`; `AN/app/api/rotas.py` (`/indicadores/alunos/{id}`); front `DetalheAluno.tsx` | `AC/tests/test_lancamentos.py` (consulta por matrícula), `AC/tests/test_seguranca_entradas.py` | ✅ |
 | RF05 | Indicadores estatísticos | `AN/app/services/estatistica.py`, `AN/app/services/painel.py`, `AN/app/api/rotas.py` (`/painel`, `/indicadores/*`) | `AN/tests/test_estatistica.py` (população × amostra, mediana, correlação), `AN/tests/test_painel.py` | ✅ |
 | RF06 | Gráficos | front `VisaoGeral.tsx`, `Analises.tsx`, `Anel.tsx` (Recharts), dados de `/painel` e `/predicao` | Inspeção visual (capturas de 2026-11-09 com 36 alunos); `AN/tests/test_painel.py` cobre os dados | 🟡 sem teste automatizado do front |
@@ -46,7 +46,7 @@ Estado conferido em 2026-11-09. A coluna **Situação** diz o que está comprova
 
 1. **RNF14**: falta um teste que force uma exceção não tratada e confira corpo padronizado, status 500 e ausência de stack trace.
 2. **RNF10**: as rotas agregadas do analítico passam de 3 s com ~9 mil inscrições (ver `desempenho.md`).
-3. **RF06, RNF11 e RNF12**: dependem só de inspeção visual; não há teste automatizado do front.
+3. **RF06, RNF11 e RNF12**: dependem só de inspeção visual; não há teste automatizado do front, inclusive das telas de Cadastros e Lançamentos.
 4. **RNF05**: revisar UML e DER contra o código final.
 5. **Casos de aceitação**: RF07 CA01–CA03 e RF09 CA01 têm teste nomeado; os demais critérios de aceitação do SRS não foram mapeados um a um.
 

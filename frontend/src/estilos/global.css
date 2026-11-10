@@ -1535,3 +1535,94 @@ p {
   font-size: 28px;
   font-weight: 600;
 }
+
+/* ---------- Cadastros e lançamentos ---------- */
+
+.botao-novo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+}
+
+.botao-novo:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.aviso-sucesso {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 13px;
+}
+
+.tabela .acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.paginacao .cartao-sub {
+  margin-right: auto;
+}
+
+.paginacao button {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--cartao);
+  color: var(--texto);
+}
+
+.paginacao button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.parametros {
+  margin-bottom: 8px;
+}
+
+.tabela.planilha td {
+  vertical-align: top;
+}
+
+.tabela input.celula {
+  width: 76px;
+  padding: 6px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--texto);
+}
+
+.tabela input.celula:disabled {
+  background: var(--cartao-2);
+}
+
+.campo-linha:not(.campo) select {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--texto);
+}
+
+.ferramentas .campo-linha:not(.campo) {
+  color: var(--texto-2);
+  font-size: 13px;
+  font-weight: 500;
+}

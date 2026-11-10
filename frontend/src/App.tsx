@@ -11,8 +11,10 @@ import { Alertas } from './paginas/Alertas';
 import { Alunos } from './paginas/Alunos';
 import { Analises } from './paginas/Analises';
 import { Auditoria } from './paginas/Auditoria';
+import { Cadastros } from './paginas/Cadastros';
 import { Cenarios } from './paginas/Cenarios';
 import { Copiloto } from './paginas/Copiloto';
+import { Lancamentos } from './paginas/Lancamentos';
 import { Login } from './paginas/Login';
 import { MeuApoio } from './paginas/MeuApoio';
 import { MeuDesempenho } from './paginas/MeuDesempenho';
@@ -62,6 +64,7 @@ function AplicacaoDoAluno() {
 function Aplicacao() {
   const [filtros, setFiltros] = useState<Filtros>({ periodo: null, turmaId: null });
   const { pathname } = useLocation();
+  const { usuario } = useSessao();
 
   // Cada tela nova começa do topo.
   useEffect(() => {
@@ -90,6 +93,16 @@ function Aplicacao() {
   const pagina = (titulo: string, conteudo: ReactNode) => (
     <>
       <Cabecalho titulo={titulo} turmas={listaDeTurmas} filtros={filtros} aoMudar={setFiltros} />
+      <main className="painel">{conteudo}</main>
+    </>
+  );
+
+  // Cadastros e lançamentos não usam os filtros de período e turma: o cabeçalho vai sem eles.
+  const paginaSemFiltros = (titulo: string, conteudo: ReactNode) => (
+    <>
+      <header className="cabecalho">
+        <h1>{titulo}</h1>
+      </header>
       <main className="painel">{conteudo}</main>
     </>
   );
@@ -134,6 +147,12 @@ function Aplicacao() {
               <Cenarios turmaId={filtros.turmaId} periodo={filtros.periodo} />,
             )}
           />
+          {(usuario?.role === 'admin' || usuario?.role === 'coordenador') && (
+            <Route path="/cadastros" element={paginaSemFiltros('Cadastros', <Cadastros aoMudarTurmas={turmas.recarregar} />)} />
+          )}
+          {(usuario?.role === 'admin' || usuario?.role === 'professor') && (
+            <Route path="/lancamentos" element={paginaSemFiltros('Lançamentos', <Lancamentos />)} />
+          )}
           <Route path="/copiloto" element={pagina('Copiloto', <Copiloto />)} />
           <Route path="/pendencias" element={pagina('Pendências', <Pendencias />)} />
           <Route path="/auditoria" element={pagina('Auditoria', <Auditoria />)} />

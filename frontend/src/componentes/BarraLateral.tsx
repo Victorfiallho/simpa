@@ -2,11 +2,13 @@ import {
   BellRing,
   Bot,
   ChartColumn,
+  ClipboardList,
   FileText,
   Inbox,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
+  NotebookPen,
   ScrollText,
   SlidersHorizontal,
   UserRound,
@@ -33,6 +35,10 @@ const ITENS_DA_GESTAO = [
   { para: '/auditoria', rotulo: 'Auditoria', Icone: ScrollText },
 ];
 
+// Cadastros: admin e coordenação. Lançamentos: admin e professor (D03).
+const ITEM_CADASTROS = { para: '/cadastros', rotulo: 'Cadastros', Icone: ClipboardList };
+const ITEM_LANCAMENTOS = { para: '/lancamentos', rotulo: 'Lançamentos', Icone: NotebookPen };
+
 const ITEM_PERFIL = { para: '/perfil', rotulo: 'Meu perfil', Icone: UserRound };
 
 // O aluno só tem as telas dele.
@@ -57,10 +63,17 @@ function Simbolo() {
 export function BarraLateral() {
   const { usuario, sair } = useSessao();
   const gestao = usuario?.role === 'admin' || usuario?.role === 'coordenador';
+  const lanca = usuario?.role === 'admin' || usuario?.role === 'professor';
   const itens =
     usuario?.role === 'aluno'
       ? ITENS_DO_ALUNO
-      : [...ITENS, ...(gestao ? ITENS_DA_GESTAO : []), ITEM_PERFIL];
+      : [
+          ...ITENS,
+          ...(gestao ? [ITEM_CADASTROS] : []),
+          ...(lanca ? [ITEM_LANCAMENTOS] : []),
+          ...(gestao ? ITENS_DA_GESTAO : []),
+          ITEM_PERFIL,
+        ];
 
   return (
     <aside className="barra">
