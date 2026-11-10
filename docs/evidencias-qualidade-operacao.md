@@ -12,7 +12,7 @@ O responsável aceitou a proposta do guia: **backup diário**, 7 cópias diária
 |---|---|
 | Commit de partida | `c06865b` (`fix(academico): consulta integrada do aluno só mostra as inscrições do professor`) |
 | Alterações locais antes de começar | Nenhuma |
-| Remotos | `origin` = `mariojorgeb/simpa-projeto`; `grupo` = `Victorfiallho/simpa`. O trabalho vai para a branch `claude/dazzling-galileo-q87j8b` do `grupo` |
+| Remotos | `origin` = `mariojorgeb/simpa-projeto`; `grupo` = `Victorfiallho/simpa`. O trabalho vai para a branch de trabalho do `grupo` |
 | `AGENTS.md` | Nenhum no repositório (busca com `find`; o `rg` não está instalado) |
 | Ambiente | Contêiner Linux. Docker 29.9.2, Compose v5.6.1, Python 3.13.18, Node 22.23.4, npm 10.9.9 |
 | Limitações do ambiente | O daemon do Docker precisa ser iniciado à mão. O Docker Hub limita as requisições (429) e obriga a repetir o `pull`. O proxy bloqueia `pip` e `npm` dentro do `docker build`: as imagens de teste foram construídas com Dockerfiles temporários **fora do repositório**, com `network: host` e o CA do proxy montado só no build. No CI e numa máquina comum o `build` normal do `compose.test.yml` funciona sem isso |
