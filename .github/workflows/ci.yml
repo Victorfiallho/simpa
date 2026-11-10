@@ -30,6 +30,8 @@ jobs:
           done
       - name: Contrato entre o front e o backend (valores enumerados)
         run: pytest -q tests/contrato
+      - name: Criptografia e recusas do backup (sem Docker)
+        run: pytest -q tests/backup
 
   monitoramento:
     name: Monitoramento (regras de alerta e configuração)
