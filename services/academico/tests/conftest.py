@@ -19,6 +19,7 @@ from app.main import app
 from app.services import cadastros
 
 PROFESSOR_VALIDO = 3
+OUTRO_PROFESSOR_VALIDO = 4
 
 
 @pytest.fixture
@@ -58,7 +59,7 @@ def cliente(monkeypatch, eventos, usuario):
             db.close()
 
     def _validar_professor(professor_id: int) -> None:
-        if professor_id != PROFESSOR_VALIDO:
+        if professor_id not in (PROFESSOR_VALIDO, OUTRO_PROFESSOR_VALIDO):
             raise RegraDeNegocioViolada("Professor inválido.", codigo="PROFESSOR_INVALIDO")
 
     monkeypatch.setattr(cadastros, "validar_professor", _validar_professor)

@@ -8,6 +8,7 @@ from sqlalchemy import or_
 from app.api.dependencias import EXIGE_GESTOR, Gestor, Pagina, Sessao, Usuario
 from app.core.entradas import escapar_like
 from app.core.respostas import Resposta, RespostaPaginada, resposta, resposta_paginada
+from app.core.seguranca import UsuarioAtual
 from app.models import Aluno
 from app.repositories.academico import AlunoRepositorio, DisciplinaRepositorio, TurmaRepositorio
 from app.schemas.aluno import (
@@ -162,19 +163,27 @@ def listar_alunos(
     return resposta_paginada(AlunoLeitura, itens, total, pagina.pagina, pagina.limite)
 
 
+def _detalhe_do_aluno(aluno: Aluno, usuario: UsuarioAtual) -> Resposta[AlunoDetalhado]:
+    """Consulta integrada já filtrada pelo escopo do usuário (D03); quem filtra é o backend."""
+    detalhe = AlunoDetalhado.model_validate(aluno)
+    visiveis = {i.id for i in escopo.inscricoes_visiveis(aluno, usuario)}
+    detalhe.inscricoes = [i for i in detalhe.inscricoes if i.id in visiveis]
+    return Resposta[AlunoDetalhado](dados=detalhe, mensagem="OK")
+
+
 @alunos.get("/matricula/{matricula}", response_model=Resposta[AlunoDetalhado])
 def consultar_aluno_por_matricula(matricula: str, db: Sessao, usuario: Usuario):
     """Consulta integrada pela matrícula (RF04)."""
     aluno = cadastros.consultar_aluno(db, matricula=matricula)
     escopo.garantir_aluno_visivel(db, aluno.id, usuario)
-    return resposta(AlunoDetalhado, aluno)
+    return _detalhe_do_aluno(aluno, usuario)
 
 
 @alunos.get("/{aluno_id}", response_model=Resposta[AlunoDetalhado])
 def consultar_aluno(aluno_id: int, db: Sessao, usuario: Usuario):
     """Consulta integrada: cadastro, disciplinas, notas e frequências (RF04)."""
     escopo.garantir_aluno_visivel(db, aluno_id, usuario)
-    return resposta(AlunoDetalhado, cadastros.consultar_aluno(db, aluno_id=aluno_id))
+    return _detalhe_do_aluno(cadastros.consultar_aluno(db, aluno_id=aluno_id), usuario)
 
 
 @alunos.post(
