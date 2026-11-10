@@ -178,6 +178,16 @@ def test_broker_parado_mostra_o_atraso_na_outbox_e_a_inibicao_evita_ruido(admin,
             prazo=240,
             intervalo=5,
         )
+        # A notificação precisa chegar com o broker ainda fora: se ele voltar antes, a outbox
+        # esvazia, o alerta se resolve sem ter sido notificado e não há "resolvido" a esperar
+        # (visto em um runner lento do CI).
+        esperar_ate(
+            lambda: _notificacoes_de("EventoPendenteNaOutbox", "firing", desde),
+            bool,
+            "notificação EventoPendenteNaOutbox chegou ao receptor",
+            prazo=90,
+            intervalo=3,
+        )
         esperar_ate(
             lambda: suporte.disparado("ColetaDeMetricasAusente", job="rabbitmq"),
             bool,
