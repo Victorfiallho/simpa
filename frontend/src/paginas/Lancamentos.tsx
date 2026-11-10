@@ -60,10 +60,10 @@ export function Lancamentos() {
     () =>
       api<RespostaPaginada<DisciplinaCadastro>>(
         `/academico/disciplinas?limite=${LIMITE}&status=ativa&ordenar_por=nome`,
-      ).then((r) => r.dados),
+      ).then((r) => ({ itens: r.dados, total: r.total_registros })),
     [],
   );
-  const disciplina = disciplinas.dados?.find((d) => String(d.id) === disciplinaId) ?? null;
+  const disciplina = disciplinas.dados?.itens.find((d) => String(d.id) === disciplinaId) ?? null;
   const nomeTurma = (id: number) => turmas.dados?.find((t) => t.id === id)?.nome ?? `Turma ${id}`;
 
   const dados = useDados<Dados | null>(async () => {
@@ -100,7 +100,7 @@ export function Lancamentos() {
         </div>
       </div>
       <Conteudo estado={disciplinas}>
-        {(lista) => (
+        {({ itens: lista, total }) => (
           <>
             <div className="ferramentas">
               <label className="campo-linha">
@@ -115,6 +115,11 @@ export function Lancamentos() {
                 </select>
               </label>
             </div>
+            {total > lista.length && (
+              <p className="aviso" role="status">
+                Mostrando as primeiras {lista.length} de {total} disciplinas ativas.
+              </p>
+            )}
             {lista.length === 0 && <p className="vazio">Nenhuma disciplina disponível para o seu perfil.</p>}
             {disciplina && (
               <Conteudo estado={dados}>

@@ -72,10 +72,37 @@ Testes de apoio: acadêmico 157 e analítico 286 testes passam; cobertura 87% e 
 3. **Evento inválido**: vai para a fila de falhas com o motivo, a fila principal não fica reentregando; `--listar` não consome; reprocessar devolve uma vez, sem loop.
 4. **Falha passageira**: com o acadêmico fora do ar, a mensagem vai para a fila de espera de 5 s (e **não** direto para a fila de falhas); ao religar, uma nova tentativa atualiza o histórico.
 
+## Etapa 5: testes de navegador (Playwright)
+
+Playwright `1.63.0` (versão fixa, casa com o Chromium do ambiente), `frontend/playwright.config.ts` e `frontend/tests/e2e/` (README com a instalação e os cuidados). Chromium real contra o ambiente isolado da etapa 3, sem mocks.
+
+| Cenário do guia | Teste | Situação |
+|---|---|---|
+| 1. Login válido de cada perfil | `login.spec.ts` (administração, coordenação, professor, aluno) | passa |
+| 2. Login inválido | `login.spec.ts` | passa |
+| 3. Professor só no seu escopo, inclusive dados aninhados | `escopo-professor.spec.ts` | passa |
+| 4. Nota salva permanece após recarregar | `lancamentos.spec.ts` | passa |
+| 5. Entrada inválida mostra erro e não altera dados | `lancamentos.spec.ts` | passa |
+| 6. Sessão realmente expirada | `login.spec.ts`: JWT vencido assinado pelo auth, `expiraEm` do navegador no futuro; o backend responde 401 e a tela volta ao login | passa |
+| 7. Pedido de apoio do aluno aparece para a coordenação | `apoio-e-relatorio.spec.ts` | passa |
+| 8. Relatório baixado com os registros esperados | `apoio-e-relatorio.spec.ts` (CSV, e-mail mascarado) | passa |
+| Extra: usabilidade e acessibilidade | `usabilidade.spec.ts` (menu alcançável em telas baixas; "Em risco" em texto, RNF12) | passa |
+
+**Resultado: 14 testes passam**, em 4 execuções completas seguidas (13 testes cada na época, cerca de 37 s por execução), mais o teste de acessibilidade acrescentado depois, que passa isolado.
+
+**Artefatos de falha.** Conferi um trace de verdade: ele **contém o JWT, o cabeçalho `Authorization` e a senha do ambiente de teste**. São credenciais sintéticas de um ambiente descartável, mas o artefato não deve sair do CI privado e precisa de retenção curta (a configuração só guarda trace e captura em falha).
+
+**Limitação do ambiente desta execução.** O build da imagem do frontend dentro do Docker falhou aqui (`npm ci` com "Exit handler never called!", rede do proxy), inclusive com o lockfile original, então o problema é do ambiente e não da mudança. Para testar, o `dist` foi gerado fora do contêiner (`npm run build`) e empacotado no nginx por um Dockerfile temporário fora do repositório. O artefato é o mesmo.
+
+**Lockfile.** O `npm install` local (10.9.9) reescreveria o lockfile e apagaria os campos `libc` de dependências opcionais que já existiam. Mantive o lockfile original e acrescentei **só** as 3 entradas do Playwright (46 inserções, 0 remoções); o `npm ci` passa.
+
 ## Defeitos reais que os testes encontraram
 
 | Defeito | Como apareceu | Correção |
 |---|---|---|
+| **Nenhum aluno conseguia enviar um pedido de apoio pela tela**: os 4 motivos do front ("Dificuldade no conteúdo"…) não existem na lista do backend ("Dificuldade com o conteúdo"…), e toda tentativa dava "Selecione um dos motivos da lista" | Etapa 5, cenário 7 (a conferência de contrato que eu tinha feito antes olhou os campos, não os valores permitidos) | Front com os motivos do backend e teste `test_motivos_do_front_sao_os_do_backend` (analítico), que lê o `MeuApoio.tsx` e falha se os dois divergirem |
+| **O menu lateral da gestão não rolava**: com 11 itens (1.125 px), em 1366×768 os itens "Pendências", "Auditoria" e "Meu perfil" ficavam fora da tela e inalcançáveis. Já existia; o item "Cadastros" piorou | Etapa 5: o teste do apoio falhava em 3 de 4 execuções com "element is outside of the viewport" | `overflow-y: auto` no menu (o perfil continua fixo embaixo) e `usabilidade.spec.ts` em 1280×720 e 1366×768 |
+| As telas de Lançamentos e de Inscrições carregavam só as primeiras 100 disciplinas, **sem avisar** | Etapa 5: o seletor não mostrava a disciplina nova | Aviso "Mostrando as primeiras N de M disciplinas ativas" |
 | Consulta integrada do aluno vazava inscrições de outro professor | Etapa 4.3 (leitura do guia) | Filtro no backend + teste de regressão |
 | `--listar` do comando de reprocessamento não terminava: devolvia cada mensagem e a lia de novo (parava só no limite de 1.000) | Teste de integração do evento inválido | Lê um retrato do tamanho da fila e devolve tudo no final; teste unitário novo |
 | **As filas de falha dos dois serviços estavam ligadas à mesma exchange `fanout`**: a falha de um serviço aparecia também na fila de falhas do outro (já existia; as 3 mensagens vistas em `auth.auditoria.falhas` eram do analítico) | Conferência do estado das filas depois da suíte | Falha vai direto para a fila do próprio serviço (analítico e auth); teste no auth; o teste de integração confere que a fila do outro não muda |
@@ -91,7 +118,7 @@ O terceiro defeito importa para a etapa 6: sem a correção, um alerta de "novas
 - [x] Interrupção e recuperação do worker aprovadas.
 - [x] Entrega confiável/outbox implementada e testada com broker indisponível.
 - [x] Reentrega idempotente e reprocessamento de falhas verificados.
-- [ ] Testes de navegador aprovados para funcionalidades existentes.
+- [x] Testes de navegador aprovados para funcionalidades existentes.
 - [ ] Métricas reais coletadas e dashboards úteis.
 - [ ] Alertas acionados e recuperados em simulação.
 - [ ] Backup íntegro, criptografado e com estratégia de consistência definida.
@@ -104,7 +131,7 @@ O terceiro defeito importa para a etapa 6: sem a correção, um alerta de "novas
 
 ## Pendências e decisões
 
-- **Etapas 5 a 9 não foram iniciadas:** testes de navegador (Playwright), monitoramento das filas, backup, restauração e a integração com o CI.
-- **A suíte entre serviços ainda não roda no CI** (etapa 9): hoje ela roda localmente contra o `compose.test.yml`.
+- **Etapas 6 a 9 não foram iniciadas:** monitoramento das filas, backup, restauração e a integração com o CI.
+- **As suítes entre serviços e de navegador ainda não rodam no CI** (etapa 9): hoje rodam localmente contra o `compose.test.yml`.
 - **Topologia já existente:** a exchange `simpa.eventos.falhas` (`fanout`) ficou como legado, porque trocar o argumento da fila principal exigiria recriá-la. Num ambiente com dados, a migração é: esvaziar a fila principal, apagar a fila e subir o worker novo.
 - **Cópia externa do backup e a chave de criptografia** dependem de infraestrutura que ainda não foi definida.

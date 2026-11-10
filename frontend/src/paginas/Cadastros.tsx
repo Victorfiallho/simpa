@@ -624,10 +624,10 @@ function PainelInscricoes({ turmas }: { turmas: TurmaCadastro[] }) {
     () =>
       api<RespostaPaginada<DisciplinaCadastro>>(
         '/academico/disciplinas?limite=100&status=ativa&ordenar_por=nome',
-      ).then((r) => r.dados),
+      ).then((r) => ({ itens: r.dados, total: r.total_registros })),
     [],
   );
-  const disciplina = disciplinas.dados?.find((d) => String(d.id) === disciplinaId) ?? null;
+  const disciplina = disciplinas.dados?.itens.find((d) => String(d.id) === disciplinaId) ?? null;
 
   const inscricoes = useDados(
     () =>
@@ -689,7 +689,7 @@ function PainelInscricoes({ turmas }: { turmas: TurmaCadastro[] }) {
           Disciplina
           <select value={disciplinaId} onChange={(e) => setDisciplinaId(e.target.value)}>
             <option value="">Selecione…</option>
-            {(disciplinas.dados ?? []).map((d) => (
+            {(disciplinas.dados?.itens ?? []).map((d) => (
               <option key={d.id} value={d.id}>
                 {d.nome} · {nomeTurma(d.turma_id)}
               </option>
@@ -697,6 +697,11 @@ function PainelInscricoes({ turmas }: { turmas: TurmaCadastro[] }) {
           </select>
         </label>
       </div>
+      {disciplinas.dados && disciplinas.dados.total > disciplinas.dados.itens.length && (
+        <p className="aviso" role="status">
+          Mostrando as primeiras {disciplinas.dados.itens.length} de {disciplinas.dados.total} disciplinas ativas.
+        </p>
+      )}
       {disciplina && (
         <form className="parametros" onSubmit={inscrever}>
           <label className="campo">

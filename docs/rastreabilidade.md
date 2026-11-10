@@ -35,8 +35,8 @@ Estado conferido em 2026-11-09. A coluna **Situação** diz o que está comprova
 | RNF08 | Persistência e integridade | models com FK, `UNIQUE` e `CHECK`; migrações Alembic por serviço; índices compostos | `*/tests/test_indices.py` (migração × models); `AC/tests/test_cadastros.py`; migrações aplicadas em PostgreSQL 17 real em 2026-11-09 (cabeças `f8a0c2e46b17`, `f7b9d1e35a64`, `9c3e5a7b1d86`) | ✅ |
 | RNF09 | Interpretabilidade | justificativa objetiva em `AN/app/services/regras.py`; textos em `AN/app/services/interpretacao.py`; front `Achados.tsx`, `Dica.tsx` | `AN/tests/test_regras.py` (justificativa cita nota e frequência), `AN/tests/test_nivel2.py` | ✅ |
 | RNF10 | Desempenho (< 300 ms) | índices compostos; paginação | Medido em PostgreSQL com 3.036 alunos e 9.108 inscrições: ver [desempenho.md](desempenho.md) | 🟡 listagens passam; rotas agregadas do analítico não |
-| RNF11 | Usabilidade | front React: navegação lateral, retorno de sucesso e erro | Inspeção visual; sem teste automatizado | 🟡 |
-| RNF12 | Acessibilidade | `Selo.tsx` escreve a situação junto da cor; `aria-*` nos componentes | Inspeção visual; sem auditoria automatizada de contraste | 🟡 |
+| RNF11 | Usabilidade | front React: navegação lateral (rola em telas baixas), retorno de sucesso e erro | `frontend/tests/e2e/`: `lancamentos.spec.ts` (retorno imediato de erro e sucesso), `usabilidade.spec.ts` (menu alcançável em 1280×720 e 1366×768), `login.spec.ts` (mensagens). Falta conferir os campos obrigatórios de forma sistemática | 🟡 |
+| RNF12 | Acessibilidade | `Selo.tsx` escreve a situação junto da cor; `aria-*` nos componentes | `usabilidade.spec.ts` confere que "Em risco" aparece em texto; seletores por papel e nome acessível em toda a suíte. Sem auditoria automatizada de contraste | 🟡 |
 | RNF13 | Rastreabilidade | este documento | Revisão por amostragem | ✅ |
 | RNF14 | Confiabilidade (500 sem stack trace) | handler em `*/app/core/excecoes.py` (`ERRO_INTERNO`, 500) | Os testes só conferem que a rota **documenta** o 500; **não há teste que provoque um erro inesperado** e confira a resposta | 🟡 |
 | RNF15 | Segurança de entrada | `*/app/core/entradas.py` (recusa `<`, `>` e controle; `PARAMETRO_REPETIDO`; `LIKE` escapado) | `*/tests/test_seguranca_entradas.py` (SQL injection, XSS, parâmetro repetido); confirmado ao vivo: `limite=1&limite=2` responde 400 | ✅ |
@@ -46,7 +46,7 @@ Estado conferido em 2026-11-09. A coluna **Situação** diz o que está comprova
 
 1. **RNF14**: falta um teste que force uma exceção não tratada e confira corpo padronizado, status 500 e ausência de stack trace.
 2. **RNF10**: as rotas agregadas do analítico passam de 3 s com ~9 mil inscrições (ver `desempenho.md`).
-3. **RF06, RNF11 e RNF12**: dependem só de inspeção visual; não há teste automatizado do front, inclusive das telas de Cadastros e Lançamentos.
+3. **RF06**: os gráficos dependem só de inspeção visual. **RNF11 e RNF12** têm testes de navegador parciais; falta auditoria de contraste e conferência sistemática dos campos obrigatórios. As telas de Cadastros ainda não têm teste de navegador (só Lançamentos).
 4. **RNF05**: revisar UML e DER contra o código final.
 5. **Casos de aceitação**: RF07 CA01–CA03 e RF09 CA01 têm teste nomeado; os demais critérios de aceitação do SRS não foram mapeados um a um.
 

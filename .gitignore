@@ -38,3 +38,7 @@ exports/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Testes de navegador (Playwright)
+frontend/playwright-report/
+frontend/test-results/

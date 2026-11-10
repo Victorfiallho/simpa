@@ -116,6 +116,13 @@ p {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Em telas baixas (notebook de 768 px) o menu da gestão passa da altura da janela: ele rola
+     dentro da barra, e o perfil continua fixo embaixo. Sem isto, os últimos itens ficavam
+     fora da tela e inalcançáveis. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--moldura-2) transparent;
 }
 
 .barra nav a,
