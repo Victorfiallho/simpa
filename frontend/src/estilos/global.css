@@ -1633,3 +1633,10 @@ p {
   font-size: 13px;
   font-weight: 500;
 }
+
+.aviso-filtro {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--texto-suave, #6b6b6b);
+}

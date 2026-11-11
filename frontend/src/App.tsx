@@ -30,6 +30,24 @@ export function App() {
   return usuario.role === 'aluno' ? <AplicacaoDoAluno /> : <Aplicacao />;
 }
 
+/** A API entrega no máximo 100 turmas por página; o filtro busca as páginas seguintes. */
+const LIMITE_DE_PAGINAS = 20;
+
+async function buscarTodasAsTurmas(): Promise<{ lista: Turma[]; omitidas: number }> {
+  const lista: Turma[] = [];
+  let total = 0;
+  for (let pagina = 1; pagina <= LIMITE_DE_PAGINAS; pagina += 1) {
+    const r = await api<RespostaPaginada<Turma>>(
+      `/academico/turmas?limite=100&pagina=${pagina}&ordenar_por=nome`,
+    );
+    lista.push(...r.dados);
+    total = r.total_registros;
+    if (lista.length >= total || r.dados.length === 0) break;
+  }
+  // Só sobra algo omitido se passar do limite de páginas: o cabeçalho avisa em vez de esconder.
+  return { lista, omitidas: Math.max(0, total - lista.length) };
+}
+
 /** O aluno só vê o que é dele: não busca turmas nem painel geral (o servidor recusaria). */
 function AplicacaoDoAluno() {
   const { pathname } = useLocation();
@@ -71,13 +89,7 @@ function Aplicacao() {
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  const turmas = useDados(
-    () =>
-      api<RespostaPaginada<Turma>>('/academico/turmas?limite=100&ordenar_por=nome').then(
-        (r) => r.dados,
-      ),
-    [],
-  );
+  const turmas = useDados(buscarTodasAsTurmas, []);
 
   const consulta = new URLSearchParams();
   if (filtros.turmaId) consulta.set('turma_id', String(filtros.turmaId));
@@ -87,12 +99,19 @@ function Aplicacao() {
     [consulta.toString()],
   );
 
-  const listaDeTurmas = turmas.dados ?? [];
+  const listaDeTurmas = turmas.dados?.lista ?? [];
+  const turmasOmitidas = turmas.dados?.omitidas ?? 0;
   const periodoMaisRecente = [...listaDeTurmas.map((t) => t.periodo_letivo)].sort().at(-1) ?? null;
 
   const pagina = (titulo: string, conteudo: ReactNode) => (
     <>
-      <Cabecalho titulo={titulo} turmas={listaDeTurmas} filtros={filtros} aoMudar={setFiltros} />
+      <Cabecalho
+        titulo={titulo}
+        turmas={listaDeTurmas}
+        turmasOmitidas={turmasOmitidas}
+        filtros={filtros}
+        aoMudar={setFiltros}
+      />
       <main className="painel">{conteudo}</main>
     </>
   );
