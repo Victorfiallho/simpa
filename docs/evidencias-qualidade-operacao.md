@@ -159,6 +159,10 @@ O token da sessão fica no `sessionStorage` (não em cookie): o risco principal 
 - **Validação local:** o Docker não estava disponível nesta sessão, então a CSP foi conferida servindo o `dist` com o cabeçalho e uma API simulada: nenhuma violação nas telas que renderizaram (6 de 12; as outras quebraram por causa dos dados simulados, não da política), e o detector foi confirmado trocando a política por `script-src 'none'`. **A execução com dados reais é a do CI.**
 - **Fora do escopo:** HSTS (só em HTTPS, fica no proxy TLS de produção), token de vida curta com renovação e revogação de token.
 
+## Listagem de usuários e professor responsável
+
+Antes, o professor responsável de uma disciplina era digitado como número de usuário, porque o auth não tinha rota para listar usuários. Agora existe `GET /auth/usuarios` (admin e coordenador; filtros `role` e `ativo`; paginada; por nome de usuário; **sem e-mail nem dados pessoais**), e a tela de Cadastros escolhe o professor por nome. Testes: 8 no auth (`test_usuarios_listagem.py`: perfis, 403/401, campos devolvidos, filtro, página, perfil inválido), 3 entre serviços pelo gateway (`tests/integration/test_usuarios_listagem.py`, incluindo que `/internal` continua fechada) e o teste de navegador de Cadastros, que agora seleciona o professor pelo nome e confere o nome na linha. Se o professor não estiver na lista (inativo ou além dos 100 primeiros), a tela mostra "Usuário N" em vez de esconder o vínculo.
+
 ## Defeitos reais que os testes encontraram
 
 | Defeito | Como apareceu | Correção |

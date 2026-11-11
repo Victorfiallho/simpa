@@ -234,6 +234,21 @@ function PainelDisciplinas({
   nomeTurma: (id: number) => string;
   opcoesTurma: Opcao[];
 }) {
+  // Professores para escolher o responsável pelo nome. Se a lista não carregar (ou o professor for
+  // inativo/além dos 100), a tela mostra "Usuário N" em vez de esconder o vínculo.
+  const professores = useDados(
+    () =>
+      api<RespostaPaginada<{ id: number; nome_usuario: string }>>(
+        '/auth/usuarios?role=professor&ativo=true&limite=100',
+      ).then((r) => r.dados),
+    [],
+  );
+  const nomesDeProfessor = new Map((professores.dados ?? []).map((u) => [u.id, u.nome_usuario]));
+  const nomeProfessor = (id: number) => nomesDeProfessor.get(id) ?? `Usuário ${id}`;
+  const opcoesProfessor: Opcao[] = (professores.dados ?? []).map((u) => ({
+    valor: String(u.id),
+    rotulo: u.nome_usuario,
+  }));
   const entidade: Entidade<DisciplinaCadastro> = {
     rota: '/academico/disciplinas',
     singular: 'disciplina',
@@ -245,7 +260,7 @@ function PainelDisciplinas({
       { titulo: 'Turma', valor: (d) => nomeTurma(d.turma_id) },
       { titulo: 'Período', valor: (d) => d.periodo_letivo },
       { titulo: 'Carga', valor: (d) => `${d.carga_horaria} h` },
-      { titulo: 'Professor', valor: (d) => (d.professor_id ? `Usuário ${d.professor_id}` : '—') },
+      { titulo: 'Professor', valor: (d) => (d.professor_id ? nomeProfessor(d.professor_id) : '—') },
     ],
     campos: [
       { chave: 'nome', rotulo: 'Nome da disciplina', tipo: 'texto', obrigatorio: true, maximo: 120 },
@@ -263,8 +278,9 @@ function PainelDisciplinas({
       {
         chave: 'professor_id',
         rotulo: 'Professor responsável (opcional)',
-        tipo: 'numero',
-        dica: 'Número do usuário professor. Nos usuários de demonstração: 3, 4 e 5.',
+        tipo: 'opcoes',
+        opcoes: opcoesProfessor,
+        rotuloDoValorAtual: (valor) => nomeProfessor(Number(valor)),
       },
     ],
     paraFormulario: (d) => ({

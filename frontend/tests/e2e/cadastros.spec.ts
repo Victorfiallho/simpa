@@ -41,9 +41,11 @@ test('a coordenação cadastra turma, disciplina, aluno e inscreve pela matrícu
   await formDisciplina.getByRole('combobox', { name: 'Turma' }).selectOption({ label: `${turma} · 2026.2` });
   await formDisciplina.getByRole('textbox', { name: 'Período letivo' }).fill('2026.2');
   await formDisciplina.getByRole('spinbutton', { name: 'Carga horária' }).fill('60');
-  await formDisciplina.getByRole('spinbutton', { name: 'Professor responsável' }).fill(String(professor.api.usuarioId));
+  // O professor é escolhido pelo nome (não mais por número de usuário).
+  await formDisciplina.getByRole('combobox', { name: 'Professor responsável' }).selectOption({ label: professor.nome });
   await formDisciplina.getByRole('button', { name: 'Cadastrar' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Disciplina cadastrada.' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: disciplina })).toContainText(professor.nome);
 
   // Aluno
   await abrirCadastros(page, 'Alunos');

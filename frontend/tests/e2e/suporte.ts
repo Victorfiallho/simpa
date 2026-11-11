@@ -57,14 +57,16 @@ with get_sessionmaker()() as db:
 `;
 
 /** Cria um usuário no auth de teste (o auth não tem rota para isso). Só existe neste ambiente. */
-function criarUsuario(papel: 'aluno' | 'professor', email: string, alunoId?: number): void {
-  const env: Record<string, string> = { NOME: `${papel}.e2e.${unico()}`, EMAIL: email, SENHA, PAPEL: papel };
+function criarUsuario(papel: 'aluno' | 'professor', email: string, alunoId?: number): string {
+  const nome = `${papel}.e2e.${unico()}`;
+  const env: Record<string, string> = { NOME: nome, EMAIL: email, SENHA, PAPEL: papel };
   const repassadas = ['-e', 'NOME', '-e', 'EMAIL', '-e', 'SENHA', '-e', 'PAPEL'];
   if (alunoId !== undefined) {
     env.ALUNO_ID = String(alunoId);
     repassadas.push('-e', 'ALUNO_ID');
   }
   compose(['exec', '-T', ...repassadas, 'auth', 'python', '-c', CRIAR_USUARIO], env);
+  return nome;
 }
 
 /** Cria o usuário (perfil aluno) ligado a um aluno do acadêmico. */
@@ -76,10 +78,10 @@ export function criarUsuarioAluno(alunoId: number, email: string): void {
  * Professor novo, só do teste: ele enxerga apenas as disciplinas que o próprio teste criou, sem
  * depender do que os outros testes deixaram no ambiente.
  */
-export async function criarProfessor(): Promise<{ email: string; api: Api }> {
+export async function criarProfessor(): Promise<{ email: string; nome: string; api: Api }> {
   const email = `prof.${unico()}@exemplo.com`;
-  criarUsuario('professor', email);
-  return { email, api: await entrarNaApi(email) };
+  const nome = criarUsuario('professor', email);
+  return { email, nome, api: await entrarNaApi(email) };
 }
 
 const TOKEN_EXPIRADO = `

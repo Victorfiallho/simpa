@@ -117,6 +117,25 @@ def listar_auditoria(
     return resposta_paginada(RegistroAuditoria, itens, total, pagina.pagina, pagina.limite)
 
 
+@app.get(
+    "/usuarios",
+    response_model=RespostaPaginada[UsuarioResumo],
+    tags=["Usuários"],
+    dependencies=[Depends(exigir_roles("admin", "coordenador"))],
+)
+def listar_usuarios(
+    db: Sessao,
+    pagina: Pagina,
+    role: Literal["admin", "coordenador", "professor", "aluno"] | None = None,
+    ativo: bool | None = None,
+):
+    """Lista usuários (id, nome de usuário, perfil, situação) para a gestão escolher, por exemplo,
+    o professor responsável de uma disciplina. Só admin e coordenador. Sempre por nome de usuário;
+    não devolve e-mail nem dados pessoais."""
+    itens, total = usuarios.listar(db, pagina, role=role, ativo=ativo)
+    return resposta_paginada(UsuarioResumo, itens, total, pagina.pagina, pagina.limite)
+
+
 # ---------- Rotas internas (bloqueadas no gateway) ----------
 
 
