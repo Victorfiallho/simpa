@@ -149,6 +149,16 @@ Como a etapa 8 precisa de um pacote para restaurar, foi feito **só o produtor m
 
 **Recusas conferidas:** destino de desenvolvimento (`simpa`), destino não vazio (nada escrito), byte alterado, arquivo truncado, chave errada, versão de migração diferente. Testes sem Docker em `tests/backup/` (22 testes); as recusas com Docker foram executadas à mão e constam acima.
 
+## Segurança: cabeçalhos HTTP e CSP
+
+O token da sessão fica no `sessionStorage` (não em cookie): o risco principal é XSS, que poderia lê-lo. Defesa adicionada:
+
+- **Gateway (`gateway/nginx.conf`), em todas as respostas:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` e `Permissions-Policy` sem câmera, microfone, geolocalização e pagamento.
+- **Página (`frontend/nginx.conf`):** `Content-Security-Policy` com `script-src 'self'` (sem `unsafe-inline` nem `unsafe-eval` em scripts), `connect-src 'self'`, `frame-ancestors 'none'` e `object-src 'none'`. Ela não vale para a API, porque o Swagger (`/api/*/docs`) carrega scripts de CDN.
+- **Testes:** `tests/integration/test_cabecalhos_de_seguranca.py` (cabeçalhos em página, API e rota inexistente; CSP sem `unsafe-eval`; API sem a CSP da página) e `frontend/tests/e2e/seguranca.spec.ts` (percorre 12 telas logado e falha se o navegador bloquear qualquer recurso).
+- **Validação local:** o Docker não estava disponível nesta sessão, então a CSP foi conferida servindo o `dist` com o cabeçalho e uma API simulada: nenhuma violação nas telas que renderizaram (6 de 12; as outras quebraram por causa dos dados simulados, não da política), e o detector foi confirmado trocando a política por `script-src 'none'`. **A execução com dados reais é a do CI.**
+- **Fora do escopo:** HSTS (só em HTTPS, fica no proxy TLS de produção), token de vida curta com renovação e revogação de token.
+
 ## Defeitos reais que os testes encontraram
 
 | Defeito | Como apareceu | Correção |
