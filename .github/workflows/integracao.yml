@@ -63,13 +63,51 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Testes de navegador (Playwright)
+      - name: Dependências do frontend
         if: ${{ !cancelled() }}
         working-directory: frontend
         run: |
           npm ci
-          npx playwright install --with-deps chromium
-          npm run test:e2e
+          echo "PLAYWRIGHT_VERSAO=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_ENV"
+
+      # O navegador baixado fica em cache por versão do Playwright, e a instalação não depende
+      # mais do CDN a cada execução.
+      - name: Cache do navegador do Playwright
+        if: ${{ !cancelled() }}
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSAO }}-chromium
+
+      # O navegador vem do CDN do Playwright e não depende do apt. O runner do GitHub já traz as
+      # bibliotecas de que o Chromium precisa (ele tem o Google Chrome instalado).
+      - name: Navegador do Playwright
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: |
+          for tentativa in 1 2 3; do
+            npx playwright install chromium && exit 0
+            echo "::warning::Download do navegador falhou (tentativa $tentativa)"
+            sleep $((tentativa * 10))
+          done
+          exit 1
+
+      # O que falta no runner são só fontes extras, que vêm do apt. O DNS dos mirrors do Ubuntu às
+      # vezes falha no runner ("Temporary failure resolving 'azure.archive.ubuntu.com'"), e cada
+      # pacote espera dezenas de segundos antes de desistir. Por isso este passo tem prazo curto e
+      # não derruba o job: sem as fontes, os testes rodam do mesmo jeito.
+      - name: Bibliotecas do sistema para o Playwright (opcional)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 4
+        working-directory: frontend
+        run: npx playwright install-deps chromium
+
+      - name: Testes de navegador (Playwright)
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npm run test:e2e
 
       - name: Restauração de um backup em ambiente vazio
         if: always()
