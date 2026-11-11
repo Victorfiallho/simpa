@@ -10,7 +10,7 @@
   --borda: #e2ddd0;
   --texto: #1d1d1b;
   --texto-2: #5c5a54;
-  --texto-3: #8b887f;
+  --texto-3: #6a6860;
 
   --verde: #8ca573;
   --verde-claro: #c9d5ba;
@@ -158,7 +158,6 @@ p {
 }
 
 .barra nav a.active .icone {
-  background: #f2efe7;
   color: var(--moldura);
 }
 
@@ -518,7 +517,8 @@ p {
 }
 
 .bloco-rodape span {
-  color: rgb(29 29 27 / 0.6);
+  /* Sólido, e não translúcido: sobre os quatro fundos de situação fica entre 5,05 e 6,75:1. */
+  color: #4a4843;
   font-weight: 500;
 }
 
@@ -585,9 +585,13 @@ p {
   color: #fff;
 }
 
+/* Tons sólidos, e não opacidade: a contagem precisa de 4,5:1 com e sem o botão pressionado. */
 .segmentos .contagem {
-  color: inherit;
-  opacity: 0.6;
+  color: var(--texto-3);
+}
+
+.segmentos button[aria-pressed='true'] .contagem {
+  color: rgb(255 255 255 / 0.75);
 }
 
 .tabela-rolagem {
@@ -1040,6 +1044,18 @@ p {
   font-size: 13px;
 }
 
+/* Campo obrigatório (RNF11): asterisco junto do rótulo e legenda no topo do formulário. */
+.obrigatorio {
+  color: var(--coral-escuro);
+  font-weight: 600;
+}
+
+.legenda-obrigatorios {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: 12px;
+}
+
 .aviso {
   padding: 10px 12px;
   border-radius: 10px;
@@ -1059,17 +1075,6 @@ p {
   text-align: center;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .girando {
-    animation: girar 0.9s linear infinite;
-  }
-}
-
-@keyframes girar {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* ---------- Detalhes e histórico ---------- */
 
@@ -1639,4 +1644,273 @@ p {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--texto-suave, #6b6b6b);
+}
+
+/* =====================================================================================
+   Movimento
+   Discreto e com função: mostra de onde algo veio, para onde foi e o que mudou. As durações
+   e curvas são as mesmas de src/movimento.ts. Com prefers-reduced-motion: reduce, tudo
+   aparece no estado final (bloco no fim deste arquivo).
+   ===================================================================================== */
+
+:root {
+  --mov-rapida: 140ms;
+  --mov-media: 240ms;
+  --mov-lenta: 420ms;
+  --curva-saida: cubic-bezier(0.22, 1, 0.36, 1);
+  --curva-padrao: cubic-bezier(0.2, 0, 0, 1);
+  --passo: 45ms;
+  /* Mesmo atraso de partida de src/movimento.ts: deixa passar a primeira renderização. */
+  --partida: 100ms;
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes crescer {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes preencher {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes revelar {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes brilho {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- Menu lateral ---------- */
+
+.barra nav a {
+  transition: color var(--mov-rapida) var(--curva-padrao);
+}
+
+.barra .icone {
+  position: relative;
+  transition:
+    background-color var(--mov-rapida) var(--curva-padrao),
+    transform var(--mov-rapida) var(--curva-padrao);
+}
+
+.barra .icone svg {
+  position: relative;
+  z-index: 1;
+}
+
+.barra nav a:not(.active):hover .icone {
+  background: rgb(242 239 231 / 0.08);
+}
+
+.barra nav a:active .icone {
+  transform: scale(0.94);
+}
+
+.icone-ativo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #f2efe7;
+}
+
+/* ---------- Entrada do conteúdo: cabeçalho e cartões em sequência ---------- */
+
+.cabecalho h1 {
+  animation: aparecer var(--mov-media) var(--curva-saida) both;
+}
+
+.transicao .cartao,
+.gaveta .cartao,
+.gaveta .resumo-aluno > * {
+  animation: surgir var(--mov-lenta) var(--curva-saida) both;
+  animation-delay: calc(var(--ordem, 0) * var(--passo) + var(--partida));
+}
+
+/* Ordem de entrada pela posição entre os irmãos; as listas longas param de escalonar no 8º. */
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(1) { --ordem: 0; }
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(2) { --ordem: 1; }
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(3) { --ordem: 2; }
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(4) { --ordem: 3; }
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(5) { --ordem: 4; }
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(6) { --ordem: 5; }
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(7) { --ordem: 6; }
+:is(.transicao, .gaveta) :is(div, section, aside, li, tr):nth-child(n + 8) { --ordem: 7; }
+
+.kpi {
+  animation: surgir var(--mov-lenta) var(--curva-saida) both;
+  animation-delay: calc(var(--ordem, 0) * var(--passo) + var(--partida) + 60ms);
+}
+
+.achados li {
+  animation: surgir var(--mov-lenta) var(--curva-saida) both;
+  animation-delay: calc(var(--ordem, 0) * var(--passo) + var(--partida) + 120ms);
+}
+
+.bloco {
+  animation: crescer var(--mov-lenta) var(--curva-saida) both;
+  animation-delay: calc(var(--ordem, 0) * var(--passo) + var(--partida) + 120ms);
+}
+
+.trilho div {
+  transform-origin: left center;
+  animation: preencher 800ms var(--curva-saida) both calc(var(--partida) + 200ms);
+}
+
+.tabela tbody tr,
+.lista-linha {
+  animation: surgir var(--mov-media) var(--curva-saida) both;
+  animation-delay: calc(var(--ordem, 0) * 25ms + 80ms);
+}
+
+/* ---------- Superfícies interativas ---------- */
+
+.tabela tbody tr,
+.lista-linha,
+.achados li {
+  transition: background-color var(--mov-rapida) var(--curva-padrao);
+}
+
+.botao-primario,
+.botao-texto,
+.botao-icone,
+.segmentos button,
+.botao-novo {
+  transition:
+    background-color var(--mov-rapida) var(--curva-padrao),
+    border-color var(--mov-rapida) var(--curva-padrao),
+    color var(--mov-rapida) var(--curva-padrao),
+    box-shadow var(--mov-rapida) var(--curva-padrao),
+    opacity var(--mov-rapida) var(--curva-padrao),
+    transform var(--mov-rapida) var(--curva-padrao);
+}
+
+.botao-primario:not(:disabled):hover {
+  background: var(--moldura-2);
+  box-shadow: 0 6px 16px -8px rgb(20 20 18 / 0.5);
+}
+
+.botao-icone:hover {
+  background: var(--cartao-2);
+}
+
+:is(.botao-primario, .botao-icone, .segmentos button, .botao-novo):not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.botao-texto:active {
+  opacity: 0.7;
+}
+
+.campo input,
+.campo select,
+.campo textarea,
+.filtro select {
+  transition:
+    border-color var(--mov-rapida) var(--curva-padrao),
+    box-shadow var(--mov-rapida) var(--curva-padrao);
+}
+
+.campo :is(input, select, textarea):focus {
+  border-color: var(--texto-3);
+  box-shadow: 0 0 0 3px rgb(122 128 240 / 0.18);
+}
+
+/* Mensagens de retorno (sucesso, aviso, erro) chegam com um leve deslize. */
+.aviso,
+.aviso-sucesso,
+.erro-campo,
+.estado {
+  animation: aparecer var(--mov-media) var(--curva-saida) both;
+}
+
+/* ---------- Gaveta ---------- */
+
+.gaveta-fundo {
+  backdrop-filter: blur(2px);
+}
+
+/* ---------- Carregamento: esqueleto com brilho ---------- */
+
+.esqueleto {
+  display: grid;
+  gap: 16px;
+  animation: aparecer var(--mov-media) var(--curva-saida) both 120ms;
+}
+
+.esqueleto-linha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.esqueleto-linha span,
+.esqueleto-bloco {
+  display: block;
+  height: 96px;
+  border-radius: var(--raio);
+  background: linear-gradient(90deg, var(--cartao-2) 0%, var(--cartao) 45%, var(--cartao-2) 90%);
+  background-size: 200% 100%;
+  animation: brilho 1.4s linear infinite;
+}
+
+.esqueleto-bloco {
+  height: 260px;
+}
+
+/* ---------- Login ---------- */
+
+.login-chamada > *,
+.login-form > * {
+  animation: surgir 560ms var(--curva-saida) both;
+}
+
+.login-chamada > :nth-child(2) { animation-delay: 80ms; }
+.login-form > :nth-child(2) { animation-delay: 60ms; }
+.login-form > :nth-child(3) { animation-delay: 110ms; }
+.login-form > :nth-child(4) { animation-delay: 160ms; }
+.login-form > :nth-child(5) { animation-delay: 210ms; }
+.login-form > :nth-child(n + 6) { animation-delay: 260ms; }
+
+.login-grafico {
+  animation: revelar 1.8s var(--curva-saida) both 250ms;
+}
+
+/* ---------- Menos movimento ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

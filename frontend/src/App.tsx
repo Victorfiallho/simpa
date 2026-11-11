@@ -5,6 +5,7 @@ import { api } from './api/cliente';
 import type { Painel, Resposta, RespostaPaginada, Turma } from './api/tipos';
 import { useDados } from './api/useDados';
 import { BarraLateral } from './componentes/BarraLateral';
+import { Transicao } from './componentes/Transicao';
 import { Cabecalho, type Filtros } from './componentes/Cabecalho';
 import { Conteudo } from './componentes/Conteudo';
 import { Alertas } from './paginas/Alertas';
@@ -60,7 +61,9 @@ function AplicacaoDoAluno() {
       <header className="cabecalho">
         <h1>{titulo}</h1>
       </header>
-      <main className="painel">{conteudo}</main>
+      <main className="painel">
+        <Transicao>{conteudo}</Transicao>
+      </main>
     </>
   );
 
@@ -112,7 +115,9 @@ function Aplicacao() {
         filtros={filtros}
         aoMudar={setFiltros}
       />
-      <main className="painel">{conteudo}</main>
+      <main className="painel">
+        <Transicao>{conteudo}</Transicao>
+      </main>
     </>
   );
 
@@ -122,7 +127,9 @@ function Aplicacao() {
       <header className="cabecalho">
         <h1>{titulo}</h1>
       </header>
-      <main className="painel">{conteudo}</main>
+      <main className="painel">
+        <Transicao>{conteudo}</Transicao>
+      </main>
     </>
   );
 

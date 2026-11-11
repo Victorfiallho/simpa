@@ -139,8 +139,13 @@ def registrar_tratadores(app: FastAPI, logger: logging.Logger) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def _inesperado(_request: Request, _erro: Exception):
+    async def _inesperado(request: Request, _erro: Exception):
         logger.exception("erro inesperado")
+        # Este tratador roda por fora do middleware de logs, que não chega a pôr o X-Request-ID
+        # na resposta. Sem ele, quem recebe o erro não acharia a requisição no log.
+        request_id = getattr(request.state, "request_id", None)
         return JSONResponse(
-            corpo_de_erro("ERRO_INTERNO", "Erro interno. Tente novamente."), status_code=500
+            corpo_de_erro("ERRO_INTERNO", "Erro interno. Tente novamente."),
+            status_code=500,
+            headers={"X-Request-ID": request_id} if request_id else None,
         )

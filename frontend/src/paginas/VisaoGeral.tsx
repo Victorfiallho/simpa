@@ -18,6 +18,7 @@ import type { Painel, Situacao } from '../api/tipos';
 import { Achados } from '../componentes/Achados';
 import { Anel } from '../componentes/Anel';
 import { Dica } from '../componentes/Dica';
+import { NumeroAnimado } from '../componentes/NumeroAnimado';
 import { Selo } from '../componentes/Selo';
 import {
   COR_SITUACAO,
@@ -28,8 +29,9 @@ import {
   ORDEM_SITUACAO,
   ROTULO_SITUACAO,
 } from '../dados/formato';
+import { useAnimacaoDosGraficos } from '../movimento';
 
-export const EIXO = { fontSize: 11, fill: '#8b887f' };
+export const EIXO = { fontSize: 11, fill: '#6a6860' };
 export const GRADE = '#e2ddd0';
 const SITUACOES_DO_GRAFICO: Situacao[] = ['sem_risco', 'atencao', 'indeterminado', 'em_risco'];
 
@@ -56,7 +58,9 @@ function Indicadores({ painel }: { painel: Painel }) {
     <section className="cartao kpis" aria-label="Indicadores gerais">
       <div className="kpi">
         <p className="kpi-rotulo">Alunos acompanhados</p>
-        <p className="kpi-valor num">{painel.total_alunos}</p>
+        <p className="kpi-valor num">
+          <NumeroAnimado valor={painel.total_alunos} formatar={(n) => String(Math.round(n))} />
+        </p>
         <div className="kpi-rodape">
           {painel.total_inscricoes} inscrições
           {painel.inscricoes_sem_dados > 0 && `, ${painel.inscricoes_sem_dados} sem dados`}
@@ -65,7 +69,7 @@ function Indicadores({ painel }: { painel: Painel }) {
       <div className="kpi">
         <p className="kpi-rotulo">Média geral</p>
         <p className="kpi-valor num">
-          {formatarNota(painel.media_geral)}
+          <NumeroAnimado valor={painel.media_geral} formatar={formatarNota} />
           <small>/ 10</small>
         </p>
         <Variacao atual={painel.media_geral} anterior={painel.media_n1} sufixo="em relação à N1" />
@@ -73,7 +77,7 @@ function Indicadores({ painel }: { painel: Painel }) {
       <div className="kpi">
         <p className="kpi-rotulo">Frequência média</p>
         <p className="kpi-valor num">
-          {formatarNota(painel.frequencia_geral)}
+          <NumeroAnimado valor={painel.frequencia_geral} formatar={formatarNota} />
           <small>%</small>
         </p>
         <Variacao
@@ -87,6 +91,7 @@ function Indicadores({ painel }: { painel: Painel }) {
 }
 
 export function DistribuicaoMedias({ histograma }: { histograma: Painel['histograma'] }) {
+  const animacao = useAnimacaoDosGraficos();
   return (
     <section className="cartao">
       <div className="cartao-topo">
@@ -102,6 +107,7 @@ export function DistribuicaoMedias({ histograma }: { histograma: Painel['histogr
           <YAxis allowDecimals={false} tick={EIXO} tickLine={false} axisLine={false} />
           <Tooltip cursor={{ fill: 'rgb(0 0 0 / 0.04)' }} content={<Dica nomes={{ inscricoes: 'Inscrições' }} />} />
           <Bar
+            {...animacao}
             dataKey="inscricoes"
             fill="#2c2c2c"
             barSize={12}
@@ -121,6 +127,7 @@ export function Dispersao({ painel }: { painel: Painel }) {
       .filter((p) => p.situacao === s)
       .map((p) => ({ ...p, x: Number(p.frequencia), y: Number(p.media) }));
   const pearson = numero(painel.correlacao_frequencia_media);
+  const animacao = useAnimacaoDosGraficos();
 
   return (
     <section className="cartao">
@@ -165,7 +172,7 @@ export function Dispersao({ painel }: { painel: Painel }) {
             }}
           />
           {SITUACOES_DO_GRAFICO.map((s) => (
-            <Scatter key={s} name={ROTULO_SITUACAO[s]} data={pontos(s)} fill={COR_SITUACAO[s]} fillOpacity={0.85} />
+            <Scatter {...animacao} key={s} name={ROTULO_SITUACAO[s]} data={pontos(s)} fill={COR_SITUACAO[s]} fillOpacity={0.85} />
           ))}
         </ScatterChart>
       </ResponsiveContainer>
@@ -237,6 +244,7 @@ function AlunosPrioritarios({ painel }: { painel: Painel }) {
 
 function SituacaoAcademica({ painel }: { painel: Painel }) {
   const total = painel.total_alunos || 1;
+  const animacao = useAnimacaoDosGraficos();
   const corEscura: Record<Situacao, string> = {
     sem_risco: '#5f7a45',
     atencao: '#b88a1c',
@@ -265,7 +273,7 @@ function SituacaoAcademica({ painel }: { painel: Painel }) {
             <YAxis allowDecimals={false} tick={EIXO} tickLine={false} axisLine={false} />
             <Tooltip cursor={{ fill: 'rgb(0 0 0 / 0.04)' }} content={<Dica nomes={ROTULO_SITUACAO} />} />
             {SITUACOES_DO_GRAFICO.map((s) => (
-              <Bar key={s} dataKey={s} fill={COR_SITUACAO[s]} barSize={6} radius={[3, 3, 0, 0]} />
+              <Bar {...animacao} key={s} dataKey={s} fill={COR_SITUACAO[s]} barSize={6} radius={[3, 3, 0, 0]} />
             ))}
           </BarChart>
         </ResponsiveContainer>
@@ -284,7 +292,7 @@ function SituacaoAcademica({ painel }: { painel: Painel }) {
             <h3>{ROTULO_SITUACAO[s]}</h3>
             <Anel percentual={(painel.contagem[s] / total) * 100} cor={corEscura[s]} legenda="dos alunos" />
             <p className="bloco-rodape num">
-              {painel.contagem[s]} <span>{painel.contagem[s] === 1 ? 'aluno' : 'alunos'}</span>
+              <NumeroAnimado valor={painel.contagem[s]} formatar={(n) => String(Math.round(n))} /> <span>{painel.contagem[s] === 1 ? 'aluno' : 'alunos'}</span>
             </p>
           </div>
         ))}

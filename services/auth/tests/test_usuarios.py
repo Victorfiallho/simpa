@@ -173,3 +173,18 @@ def test_rota_interna_de_professores_nao_lista_alunos(cliente, sessoes):
     professores = cliente.get("/internal/usuarios", params={"role": "professor"}).json()["dados"]
 
     assert {p["role"] for p in professores} == {"professor"}
+
+
+def test_rf09_ca01_token_emitido_tem_prazo_de_expiracao(cliente):
+    dados = entrar(cliente, "ana.prof@simpa.dev", SENHA).json()["dados"]
+
+    chave = jwt.PyJWK(cliente.get("/.well-known/jwks.json").json()["keys"][0]).key
+    token = jwt.decode(
+        dados["access_token"],
+        chave,
+        algorithms=["RS256"],
+        issuer="simpa-auth",
+        options={"require": ["exp", "iat"]},
+    )
+    assert token["exp"] - token["iat"] == get_settings().jwt_expira_minutos * 60
+    assert dados["expira_em_minutos"] == get_settings().jwt_expira_minutos

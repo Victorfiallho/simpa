@@ -14,7 +14,8 @@ import {
 import { api } from '../api/cliente';
 import type { Predicao as DadosPredicao, Resposta } from '../api/tipos';
 import { useDados } from '../api/useDados';
-import { COR_SITUACAO, formatarNota, formatarPercentual } from '../dados/formato';
+import { formatarNota, formatarPercentual } from '../dados/formato';
+import { useAnimacaoDosGraficos } from '../movimento';
 import { EIXO, GRADE } from '../paginas/VisaoGeral';
 import { Conteudo } from './Conteudo';
 import { Selo } from './Selo';
@@ -25,6 +26,7 @@ function formatarNumero(valor: number, casas = 2): string {
 
 function Modelo({ dados }: { dados: DadosPredicao }) {
   const modelo = dados.modelo!;
+  const animacao = useAnimacaoDosGraficos();
   const pontos = dados.previsoes
     .filter((p) => p.nota_n2_real !== null)
     .map((p) => ({ ...p, x: Number(p.nota_n2_real), y: Number(p.nota_n2_prevista) }));
@@ -94,7 +96,7 @@ function Modelo({ dados }: { dados: DadosPredicao }) {
                 );
               }}
             />
-            <Scatter data={pontos} fill="#2c2c2c" fillOpacity={0.7} />
+            <Scatter {...animacao} data={pontos} fill="#2c2c2c" fillOpacity={0.7} />
           </ScatterChart>
         </ResponsiveContainer>
         <p className="legenda">Eixo horizontal: N2 lançada. Eixo vertical: N2 prevista pelo modelo.</p>
@@ -147,7 +149,7 @@ function Projecoes({ dados }: { dados: DadosPredicao }) {
                 <td className="direita num">{formatarPercentual(p.frequencia_n1)}</td>
                 <td className="direita num">{formatarNota(p.nota_n2_prevista)}</td>
                 <td className="direita num">
-                  <span style={{ color: p.risco_projetado ? COR_SITUACAO.em_risco : undefined, fontWeight: 600 }}>
+                  <span style={{ color: p.risco_projetado ? 'var(--coral-escuro)' : undefined, fontWeight: 600 }}>
                     {formatarNota(p.media_projetada)}
                   </span>
                 </td>

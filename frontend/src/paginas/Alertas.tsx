@@ -1,5 +1,7 @@
 import { BellRing, ClipboardPen, X } from 'lucide-react';
+import { AnimatePresence, m } from 'motion/react';
 import { type FormEvent, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { api } from '../api/cliente';
 import type {
@@ -12,7 +14,9 @@ import type {
   TipoAlerta,
 } from '../api/tipos';
 import { useDados } from '../api/useDados';
+import { useGavetaAnimada } from '../movimento';
 import { Conteudo } from '../componentes/Conteudo';
+import { LegendaObrigatorios, Rotulo } from '../componentes/Obrigatorio';
 
 const ROTULO_TIPO: Record<TipoAlerta, string> = {
   queda: 'Quebra de padrão',
@@ -216,16 +220,19 @@ export function Alertas({ turmaId, periodo }: { turmaId: number | null; periodo:
               )}
             </section>
 
-            {acompanhar && (
-              <FormularioAcompanhamento
-                alerta={acompanhar}
-                aoFechar={() => setAcompanhar(null)}
-                aoSalvar={() => {
-                  setAcompanhar(null);
-                  lista.recarregar();
-                }}
-              />
-            )}
+            <AnimatePresence>
+              {acompanhar && (
+                <FormularioAcompanhamento
+                  key={acompanhar.aluno_id}
+                  alerta={acompanhar}
+                  aoFechar={() => setAcompanhar(null)}
+                  aoSalvar={() => {
+                    setAcompanhar(null);
+                    lista.recarregar();
+                  }}
+                />
+              )}
+            </AnimatePresence>
           </div>
         );
       }}
@@ -242,6 +249,7 @@ function FormularioAcompanhamento({
   aoFechar: () => void;
   aoSalvar: () => void;
 }) {
+  const animacao = useGavetaAnimada();
   const [tipo, setTipo] = useState<TipoAcompanhamento>('contato');
   const [data, setData] = useState(hoje());
   const [observacao, setObservacao] = useState('');
@@ -272,9 +280,15 @@ function FormularioAcompanhamento({
     }
   }
 
-  return (
-    <div className="gaveta-fundo" role="dialog" aria-modal="true" aria-label="Registrar acompanhamento">
-      <div className="gaveta">
+  return createPortal(
+    <m.div
+      {...animacao.fundo}
+      className="gaveta-fundo"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Registrar acompanhamento"
+    >
+      <m.div className="gaveta" {...animacao.painel}>
         <div className="gaveta-topo">
           <div>
             <h2>Registrar acompanhamento</h2>
@@ -287,6 +301,7 @@ function FormularioAcompanhamento({
           </button>
         </div>
         <form className="coluna" onSubmit={enviar}>
+          <LegendaObrigatorios />
           <label className="campo">
             Ação realizada
             <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoAcompanhamento)}>
@@ -298,11 +313,11 @@ function FormularioAcompanhamento({
             </select>
           </label>
           <label className="campo">
-            Data
+            <Rotulo texto="Data" obrigatorio />
             <input type="date" value={data} max={hoje()} required onChange={(e) => setData(e.target.value)} />
           </label>
           <label className="campo">
-            Observação curta
+            <Rotulo texto="Observação curta" obrigatorio />
             <textarea
               value={observacao}
               minLength={3}
@@ -326,7 +341,8 @@ function FormularioAcompanhamento({
             {enviando ? 'Salvando…' : 'Registrar'}
           </button>
         </form>
-      </div>
-    </div>
+      </m.div>
+    </m.div>,
+    document.body,
   );
 }

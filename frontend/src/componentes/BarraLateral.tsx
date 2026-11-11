@@ -14,9 +14,11 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
+import { m } from 'motion/react';
 import { NavLink } from 'react-router-dom';
 
 import { iniciais } from '../dados/formato';
+import { MOLA } from '../movimento';
 import { useSessao } from '../sessao';
 
 const ITENS = [
@@ -85,10 +87,17 @@ export function BarraLateral() {
       <nav aria-label="Menu principal">
         {itens.map(({ para, rotulo, Icone }) => (
           <NavLink key={para} to={para} end={para === '/'}>
-            <span className="icone">
-              <Icone size={19} strokeWidth={1.8} />
-            </span>
-            {rotulo}
+            {({ isActive }) => (
+              <>
+                <span className="icone">
+                  {isActive && (
+                    <m.span layoutId="menu-ativo" className="icone-ativo" transition={MOLA} aria-hidden="true" />
+                  )}
+                  <Icone size={19} strokeWidth={1.8} />
+                </span>
+                {rotulo}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
