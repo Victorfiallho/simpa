@@ -10,7 +10,7 @@
   --borda: #e2ddd0;
   --texto: #1d1d1b;
   --texto-2: #5c5a54;
-  --texto-3: #8b887f;
+  --texto-3: #6a6860;
 
   --verde: #8ca573;
   --verde-claro: #c9d5ba;
@@ -1038,6 +1038,18 @@ p {
 .erro-campo {
   color: var(--coral-escuro);
   font-size: 13px;
+}
+
+/* Campo obrigatório (RNF11): asterisco junto do rótulo e legenda no topo do formulário. */
+.obrigatorio {
+  color: var(--coral-escuro);
+  font-weight: 600;
+}
+
+.legenda-obrigatorios {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: 12px;
 }
 
 .aviso {

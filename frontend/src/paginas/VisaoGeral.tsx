@@ -29,7 +29,7 @@ import {
   ROTULO_SITUACAO,
 } from '../dados/formato';
 
-export const EIXO = { fontSize: 11, fill: '#8b887f' };
+export const EIXO = { fontSize: 11, fill: '#6a6860' };
 export const GRADE = '#e2ddd0';
 const SITUACOES_DO_GRAFICO: Situacao[] = ['sem_risco', 'atencao', 'indeterminado', 'em_risco'];
 
