@@ -14,7 +14,7 @@ import {
 import { api } from '../api/cliente';
 import type { Predicao as DadosPredicao, Resposta } from '../api/tipos';
 import { useDados } from '../api/useDados';
-import { COR_SITUACAO, formatarNota, formatarPercentual } from '../dados/formato';
+import { formatarNota, formatarPercentual } from '../dados/formato';
 import { EIXO, GRADE } from '../paginas/VisaoGeral';
 import { Conteudo } from './Conteudo';
 import { Selo } from './Selo';
@@ -147,7 +147,7 @@ function Projecoes({ dados }: { dados: DadosPredicao }) {
                 <td className="direita num">{formatarPercentual(p.frequencia_n1)}</td>
                 <td className="direita num">{formatarNota(p.nota_n2_prevista)}</td>
                 <td className="direita num">
-                  <span style={{ color: p.risco_projetado ? COR_SITUACAO.em_risco : undefined, fontWeight: 600 }}>
+                  <span style={{ color: p.risco_projetado ? 'var(--coral-escuro)' : undefined, fontWeight: 600 }}>
                     {formatarNota(p.media_projetada)}
                   </span>
                 </td>
