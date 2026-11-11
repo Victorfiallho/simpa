@@ -78,6 +78,11 @@ test('Visão geral: os gráficos mostram os dados da turma, com título, eixos e
   await expect(dispersao.locator('.recharts-scatter-symbol')).toHaveCount(2);
   await expect(rotulosDosEixos(dispersao).filter({ hasText: '100%' })).toHaveCount(1);
   await expect(dispersao).toContainText('Linhas tracejadas: 75% e 6,00.');
+  // RF06 CA03: cores semânticas. O ponto em risco é coral e o sem risco é verde (COR_SITUACAO).
+  const cores = await dispersao
+    .locator('.recharts-scatter-symbol .recharts-symbols')
+    .evaluateAll((pontos) => pontos.map((p) => p.getAttribute('fill')).sort());
+  expect(cores).toEqual(['#8ca573', '#ea7957']);
 
   // Barras por disciplina e turma: legenda com as quatro situações escritas.
   const porOferta = cartao(page, 'Inscrições por disciplina e turma');
