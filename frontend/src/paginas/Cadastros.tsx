@@ -1,4 +1,5 @@
 import { Pencil, Plus, Search, UserMinus } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 
 import { api } from '../api/cliente';
@@ -463,14 +464,17 @@ function PainelEntidade<T extends { id: number; status: string }>({
           />
         )}
       </Conteudo>
-      {formulario && (
-        <FormularioEntidade
-          entidade={entidade}
-          linha={formulario.linha}
-          aoFechar={() => setFormulario(null)}
-          aoSalvar={salvou}
-        />
-      )}
+      <AnimatePresence>
+        {formulario && (
+          <FormularioEntidade
+            key={formulario.linha?.id ?? 'novo'}
+            entidade={entidade}
+            linha={formulario.linha}
+            aoFechar={() => setFormulario(null)}
+            aoSalvar={salvou}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

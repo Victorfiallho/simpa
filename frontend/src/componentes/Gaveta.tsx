@@ -1,5 +1,9 @@
 import { X } from 'lucide-react';
+import { m } from 'motion/react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+
+import { useGavetaAnimada } from '../movimento';
 
 /** Painel lateral para formulários e detalhes. O fundo escurecido fecha ao clicar fora. */
 export function Gaveta({
@@ -13,15 +17,17 @@ export function Gaveta({
   aoFechar: () => void;
   children: ReactNode;
 }) {
-  return (
-    <div
+  const animacao = useGavetaAnimada();
+  return createPortal(
+    <m.div
+      {...animacao.fundo}
       className="gaveta-fundo"
       role="dialog"
       aria-modal="true"
       aria-label={titulo}
       onClick={(e) => e.target === e.currentTarget && aoFechar()}
     >
-      <div className="gaveta">
+      <m.div className="gaveta" {...animacao.painel}>
         <div className="gaveta-topo">
           <div>
             <h2>{titulo}</h2>
@@ -32,7 +38,8 @@ export function Gaveta({
           </button>
         </div>
         {children}
-      </div>
-    </div>
+      </m.div>
+    </m.div>,
+    document.body,
   );
 }

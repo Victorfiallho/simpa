@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { useMemo, useState } from 'react';
 
 import type { AlunoPainel, Painel, Situacao } from '../api/tipos';
@@ -108,7 +109,11 @@ export function Alunos({ painel }: { painel: Painel }) {
         {alunos.length === 0 && <p className="vazio">Nenhum aluno encontrado com esses filtros.</p>}
       </div>
 
-      {selecionado && <DetalheAluno aluno={selecionado} aoFechar={() => setSelecionado(null)} />}
+      <AnimatePresence>
+        {selecionado && (
+          <DetalheAluno key={selecionado.id} aluno={selecionado} aoFechar={() => setSelecionado(null)} />
+        )}
+      </AnimatePresence>
     </section>
   );
 }
