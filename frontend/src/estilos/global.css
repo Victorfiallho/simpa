@@ -586,9 +586,13 @@ p {
   color: #fff;
 }
 
+/* Tons sólidos, e não opacidade: a contagem precisa de 4,5:1 com e sem o botão pressionado. */
 .segmentos .contagem {
-  color: inherit;
-  opacity: 0.6;
+  color: var(--texto-3);
+}
+
+.segmentos button[aria-pressed='true'] .contagem {
+  color: rgb(255 255 255 / 0.75);
 }
 
 .tabela-rolagem {
