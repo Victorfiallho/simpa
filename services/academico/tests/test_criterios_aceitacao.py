@@ -15,6 +15,14 @@ from tests.conftest import PROFESSOR_VALIDO, criar
 # ---------- RF01: cadastro de alunos ----------
 
 
+def test_rf01_ca02_matricula_nao_pode_ser_trocada_na_atualizacao(cliente, turma, aluno):
+    """A matrícula é fixada no cadastro: a atualização não a aceita, nem repetida nem nova."""
+    resposta = cliente.patch(f"/alunos/{aluno['id']}", json={"matricula": "20260077"})
+
+    assert resposta.status_code == 422
+    assert resposta.json()["erro"]["campos"][0]["campo"] == "matricula"
+
+
 def test_rf01_ca03_cpf_ja_cadastrado_e_rejeitado(cliente, turma, aluno):
     resposta = cliente.post(
         "/alunos",
