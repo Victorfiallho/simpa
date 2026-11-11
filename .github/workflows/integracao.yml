@@ -63,13 +63,50 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Testes de navegador (Playwright)
+      - name: Dependências do frontend
         if: ${{ !cancelled() }}
         working-directory: frontend
         run: |
           npm ci
-          npx playwright install --with-deps chromium
-          npm run test:e2e
+          echo "PLAYWRIGHT_VERSAO=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_ENV"
+
+      # O navegador baixado fica em cache por versão do Playwright, e a instalação não depende
+      # mais do CDN a cada execução.
+      - name: Cache do navegador do Playwright
+        if: ${{ !cancelled() }}
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSAO }}-chromium
+
+      # As bibliotecas do sistema vêm do apt, e o mirror do runner às vezes não resolve no DNS
+      # ("Temporary failure resolving 'azure.archive.ubuntu.com'"). Tenta 3 vezes; a partir da
+      # segunda, troca o mirror do Azure pelo archive.ubuntu.com.
+      - name: Navegador do Playwright e bibliotecas do sistema
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: |
+          for tentativa in 1 2 3; do
+            if [ "$tentativa" -gt 1 ]; then
+              echo "::warning::Instalação do Playwright falhou; tentativa $tentativa com outro mirror do apt"
+              sleep $((tentativa * 15))
+              if [ -f /etc/apt/apt-mirrors.txt ]; then
+                printf 'http://archive.ubuntu.com/ubuntu/\nhttp://security.ubuntu.com/ubuntu/\n' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+              fi
+              sudo apt-get update -o Acquire::Retries=3 || true
+            fi
+            if npx playwright install --with-deps chromium; then
+              exit 0
+            fi
+          done
+          echo "::error::Não foi possível instalar o Playwright depois de 3 tentativas"
+          exit 1
+
+      - name: Testes de navegador (Playwright)
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npm run test:e2e
 
       - name: Restauração de um backup em ambiente vazio
         if: always()
