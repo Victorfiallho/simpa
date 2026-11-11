@@ -518,7 +518,8 @@ p {
 }
 
 .bloco-rodape span {
-  color: rgb(29 29 27 / 0.6);
+  /* Sólido, e não translúcido: sobre os quatro fundos de situação fica entre 5,05 e 6,75:1. */
+  color: #4a4843;
   font-weight: 500;
 }
 
