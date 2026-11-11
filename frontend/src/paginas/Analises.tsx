@@ -18,6 +18,7 @@ import { Conteudo } from '../componentes/Conteudo';
 import { Predicao } from '../componentes/Predicao';
 import { Dica } from '../componentes/Dica';
 import { COR_SITUACAO, formatarNota, formatarPercentual, numero, ROTULO_SITUACAO } from '../dados/formato';
+import { useAnimacaoDosGraficos } from '../movimento';
 import { DistribuicaoMedias, EIXO, GRADE } from './VisaoGeral';
 
 type Janela = 'acumulado' | 'N1';
@@ -69,6 +70,7 @@ function Estatisticas({ dados }: { dados: Indicadores }) {
 
 function Ranking({ dados }: { dados: Indicadores }) {
   const linhas = dados.por_disciplina.map((d) => ({ nome: rotuloDisciplina(d), media: numero(d.media) }));
+  const animacao = useAnimacaoDosGraficos();
   return (
     <section className="cartao">
       <div className="cartao-topo">
@@ -81,7 +83,7 @@ function Ranking({ dados }: { dados: Indicadores }) {
         <BarChart data={linhas} layout="vertical" margin={{ top: 0, right: 40, bottom: 0, left: 0 }}>
           <XAxis type="number" domain={[0, 10]} hide />
           <YAxis type="category" dataKey="nome" width={200} tick={EIXO} tickLine={false} axisLine={false} />
-          <Bar dataKey="media" fill="#2c2c2c" barSize={12} radius={6} background={{ fill: '#e9e5da', radius: 6 }}>
+          <Bar {...animacao} dataKey="media" fill="#2c2c2c" barSize={12} radius={6} background={{ fill: '#e9e5da', radius: 6 }}>
             <LabelList dataKey="media" position="right" formatter={(v) => formatarNota(v as number)} className="num" fontSize={12} />
           </Bar>
         </BarChart>
@@ -96,6 +98,7 @@ function Evolucao({ dados }: { dados: Indicadores }) {
     N1: numero(d.media_n1),
     Acumulado: numero(d.media),
   }));
+  const animacao = useAnimacaoDosGraficos();
   return (
     <section className="cartao">
       <div className="cartao-topo">
@@ -110,8 +113,8 @@ function Evolucao({ dados }: { dados: Indicadores }) {
           <XAxis dataKey="nome" tick={EIXO} tickLine={false} axisLine={false} interval={0} />
           <YAxis domain={[0, 10]} tick={EIXO} tickLine={false} axisLine={false} />
           <Tooltip cursor={{ fill: 'rgb(0 0 0 / 0.04)' }} content={<Dica formatar={(v) => formatarNota(v)} />} />
-          <Bar dataKey="N1" fill="#c9c4b6" barSize={14} radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Acumulado" fill="#2c2c2c" barSize={14} radius={[4, 4, 0, 0]} />
+          <Bar {...animacao} dataKey="N1" fill="#c9c4b6" barSize={14} radius={[4, 4, 0, 0]} />
+          <Bar {...animacao} dataKey="Acumulado" fill="#2c2c2c" barSize={14} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
       <div className="legenda">

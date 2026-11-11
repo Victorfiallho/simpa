@@ -18,6 +18,8 @@ export default defineConfig({
   outputDir: 'test-results',
   use: {
     baseURL: BASE_URL,
+    // A interface respeita prefers-reduced-motion: com "reduce" tudo aparece já no estado final.
+    contextOptions: { reducedMotion: 'reduce' },
     locale: 'pt-BR',
     timezoneId: 'America/Sao_Paulo',
     // Trace e captura só quando o teste falha. Eles podem conter o token do ambiente de teste

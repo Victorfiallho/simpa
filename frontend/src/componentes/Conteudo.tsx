@@ -1,4 +1,4 @@
-import { LoaderCircle, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import type { Estado } from '../api/useDados';
@@ -24,9 +24,18 @@ export function Conteudo<T>({
   }
   if (estado.dados === null) {
     return (
-      <div className="estado" aria-busy="true">
-        <LoaderCircle size={22} className="girando" />
-        <p>Carregando…</p>
+      <div className="esqueleto" aria-busy="true">
+        <span className="sr-only">Carregando…</span>
+        <div className="esqueleto-linha" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="esqueleto-bloco" aria-hidden="true" />
+        <div className="esqueleto-linha" aria-hidden="true">
+          <span />
+          <span />
+        </div>
       </div>
     );
   }

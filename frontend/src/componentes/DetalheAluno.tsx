@@ -1,5 +1,7 @@
 import { X } from 'lucide-react';
+import { m } from 'motion/react';
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import { api } from '../api/cliente';
 import type { AlunoPainel, Resposta, ResultadoRisco, Situacao } from '../api/tipos';
@@ -11,6 +13,7 @@ import {
   formatarPercentual,
   ROTULO_SITUACAO,
 } from '../dados/formato';
+import { useGavetaAnimada } from '../movimento';
 import { Selo } from './Selo';
 
 function situacaoDe(r: ResultadoRisco): Situacao {
@@ -62,6 +65,7 @@ interface Props {
 
 export function DetalheAluno({ aluno, aoFechar }: Props) {
   const fechar = useRef<HTMLButtonElement>(null);
+  const animacao = useGavetaAnimada();
 
   useEffect(() => {
     fechar.current?.focus();
@@ -70,9 +74,10 @@ export function DetalheAluno({ aluno, aoFechar }: Props) {
     return () => document.removeEventListener('keydown', aoTeclar);
   }, [aoFechar]);
 
-  return (
-    <div className="gaveta-fundo" onClick={aoFechar}>
-      <aside
+  return createPortal(
+    <m.div className="gaveta-fundo" onClick={aoFechar} {...animacao.fundo}>
+      <m.aside
+        {...animacao.painel}
         className="gaveta"
         role="dialog"
         aria-modal="true"
@@ -185,7 +190,8 @@ export function DetalheAluno({ aluno, aoFechar }: Props) {
           <p className="cartao-sub">Cada mudança de situação, da mais recente para a mais antiga</p>
           <Historico aluno={aluno} />
         </section>
-      </aside>
-    </div>
+      </m.aside>
+    </m.div>,
+    document.body,
   );
 }
