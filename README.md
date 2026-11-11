@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# SIMPA — Sistema Inteligente de Monitoramento e Predição Acadêmica
+# SIMPA ----- Sistema Inteligente de Monitoramento e Predição Acadêmica
 
 Projeto Integrador — 2º período de Inteligência Artificial — UniEVANGÉLICA.
 
@@ -225,13 +225,6 @@ docs/                        SRS, DER, decisões, UML, códigos de erro, roteiro
 - [Evidências de qualidade e operação (testes, monitoramento, backup e restauração)](docs/evidencias-qualidade-operacao.md)
 - [Matriz de rastreabilidade (RNF13)](docs/rastreabilidade.md)
 - [Medição de desempenho (RNF10)](docs/desempenho.md)
+- [Roteiro da apresentação da Entrega 2](docs/roteiro-apresentacao-entrega2.md) (falas e divisão entre os integrantes)
 - [Roadmap](ROADMAP.md)
 
-## Equipe
-
-| Integrante | Responsabilidades |
-|---|---|
-| _Nome_ | _ex.: serviço auth_ |
-| _Nome_ | _ex.: serviço acadêmico_ |
-| _Nome_ | _ex.: serviço analítico (estatística e risco)_ |
-| _Nome_ | _ex.: frontend_ |
