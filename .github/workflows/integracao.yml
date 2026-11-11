@@ -80,28 +80,29 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSAO }}-chromium
 
-      # As bibliotecas do sistema vêm do apt, e o mirror do runner às vezes não resolve no DNS
-      # ("Temporary failure resolving 'azure.archive.ubuntu.com'"). Tenta 3 vezes; a partir da
-      # segunda, troca o mirror do Azure pelo archive.ubuntu.com.
-      - name: Navegador do Playwright e bibliotecas do sistema
+      # O navegador vem do CDN do Playwright e não depende do apt. O runner do GitHub já traz as
+      # bibliotecas de que o Chromium precisa (ele tem o Google Chrome instalado).
+      - name: Navegador do Playwright
         if: ${{ !cancelled() }}
         working-directory: frontend
         run: |
           for tentativa in 1 2 3; do
-            if [ "$tentativa" -gt 1 ]; then
-              echo "::warning::Instalação do Playwright falhou; tentativa $tentativa com outro mirror do apt"
-              sleep $((tentativa * 15))
-              if [ -f /etc/apt/apt-mirrors.txt ]; then
-                printf 'http://archive.ubuntu.com/ubuntu/\nhttp://security.ubuntu.com/ubuntu/\n' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
-              fi
-              sudo apt-get update -o Acquire::Retries=3 || true
-            fi
-            if npx playwright install --with-deps chromium; then
-              exit 0
-            fi
+            npx playwright install chromium && exit 0
+            echo "::warning::Download do navegador falhou (tentativa $tentativa)"
+            sleep $((tentativa * 10))
           done
-          echo "::error::Não foi possível instalar o Playwright depois de 3 tentativas"
           exit 1
+
+      # O que falta no runner são só fontes extras, que vêm do apt. O DNS dos mirrors do Ubuntu às
+      # vezes falha no runner ("Temporary failure resolving 'azure.archive.ubuntu.com'"), e cada
+      # pacote espera dezenas de segundos antes de desistir. Por isso este passo tem prazo curto e
+      # não derruba o job: sem as fontes, os testes rodam do mesmo jeito.
+      - name: Bibliotecas do sistema para o Playwright (opcional)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 4
+        working-directory: frontend
+        run: npx playwright install-deps chromium
 
       - name: Testes de navegador (Playwright)
         if: ${{ !cancelled() }}
