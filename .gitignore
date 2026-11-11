@@ -19,6 +19,10 @@ htmlcov/
 
 # Segredos e configuração local (RNF04 — nunca versionar)
 .env
+.env.test
+.env.restore-test
+backup.test.toml
+restore.test.toml
 chaves/
 *.pem
 
@@ -34,3 +38,7 @@ exports/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Testes de navegador (Playwright)
+frontend/playwright-report/
+frontend/test-results/

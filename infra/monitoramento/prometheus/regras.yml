@@ -1,0 +1,143 @@
+# Alertas das filas de eventos (etapa 6). Os limites são INICIAIS, a ajustar depois de observar carga
+# real. O que cada alerta significa e o que fazer está em docs/operacao-filas.md.
+groups:
+  - name: simpa-filas
+    rules:
+      # Fila esperada sem consumidor: o worker não está ouvindo.
+      - alert: FilaSemConsumidor
+        expr: rabbitmq_detailed_queue_consumers{queue=~"analitico\\.recalculo-risco|auth\\.auditoria"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fila {{ $labels.queue }} sem consumidor há mais de 1 minuto"
+          description: "O worker não está conectado à fila. Eventos acumulam sem ser processados."
+          runbook: "docs/operacao-filas.md#alerta-filasemconsumidor"
+
+      # Uma fila inexistente não pode parecer saudável só porque não há métrica dela.
+      - alert: FilaEsperadaAusente
+        expr: >-
+          absent(rabbitmq_detailed_queue_consumers{queue="analitico.recalculo-risco"})
+          or absent(rabbitmq_detailed_queue_consumers{queue="auth.auditoria"})
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fila {{ $labels.queue }} não aparece nas métricas"
+          description: "A fila não existe ou o RabbitMQ não a informa. Sem a série, não dá para dizer que está saudável."
+          runbook: "docs/operacao-filas.md#alerta-filaesperadaausente"
+
+      # Mensagens NOVAS em uma fila de falhas (analítico ou auth).
+      - alert: FilaDeFalhasRecebeuMensagens
+        expr: delta(rabbitmq_detailed_queue_messages_ready{queue=~".+\\.falhas"}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Chegaram mensagens à fila de falhas {{ $labels.queue }}"
+          description: "Um evento foi recusado ou esgotou as tentativas. Exige ação humana: descobrir a causa e reprocessar."
+          runbook: "docs/operacao-filas.md#alerta-filadefalhasrecebeumensagens"
+
+      # A fila de falhas segue com mensagens esquecidas.
+      - alert: FilaDeFalhasNaoVazia
+        expr: rabbitmq_detailed_queue_messages_ready{queue=~".+\\.falhas"} > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A fila de falhas {{ $labels.queue }} tem mensagens há mais de 30 minutos"
+          description: "{{ $value }} mensagem(ns) esperando decisão."
+          runbook: "docs/operacao-filas.md#alerta-filadefalhasnaovazia"
+
+      # Atraso ANTES do broker: o acadêmico gravou, mas o despachante não conseguiu publicar.
+      - alert: EventoPendenteNaOutbox
+        expr: academico_outbox_idade_evento_mais_antigo_segundos > 120
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Evento pendente na outbox há mais de 2 minutos"
+          description: "O mais antigo espera há {{ $value | humanizeDuration }}. Veja o broker, a topologia e o despachante."
+          runbook: "docs/operacao-filas.md#alerta-eventopendentenaoutbox"
+
+      # Fila principal crescendo de forma sustentada (entrada maior que a vazão).
+      - alert: FilaCrescendo
+        expr: >-
+          deriv(rabbitmq_detailed_queue_messages_ready{queue="analitico.recalculo-risco"}[5m]) * 60 > 3
+          and rabbitmq_detailed_queue_messages_ready{queue="analitico.recalculo-risco"} > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A fila {{ $labels.queue }} cresce há 5 minutos"
+          description: "Crescendo a {{ $value | printf \"%.1f\" }} mensagens por minuto. Compare a entrada com a vazão do worker."
+          runbook: "docs/operacao-filas.md#alerta-filacrescendo"
+
+      # Eventos sem destino ou recusados na publicação: topologia quebrada.
+      - alert: EventoSemDestino
+        expr: increase(academico_despachante_publicacoes_total{resultado=~"sem_destino|recusado"}[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "O despachante teve publicações {{ $labels.resultado }} nos últimos 5 minutos"
+          description: "O broker não aceitou a mensagem (sem fila ligada à exchange, ou recusa). O evento fica na outbox e é tentado de novo."
+          runbook: "docs/operacao-filas.md#alerta-eventosemdestino"
+
+      # Atraso de ponta a ponta: da alteração no acadêmico ao fim do processamento.
+      - alert: ProcessamentoLento
+        expr: >-
+          histogram_quantile(0.95, sum by (le) (rate(analitico_evento_latencia_segundos_bucket[5m]))) > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "95% dos eventos levam mais de 60 s da alteração até o processamento"
+          description: "p95 de {{ $value | humanizeDuration }}. A atualização do risco está atrasada."
+          runbook: "docs/operacao-filas.md#alerta-processamentolento"
+
+      # Instabilidade: o despachante ou o worker vivem reconectando.
+      - alert: ReconexoesFrequentes
+        expr: >-
+          sum(increase(academico_despachante_reconexoes_total[10m])) > 3
+          or sum(increase(analitico_consumidor_reconexoes_total[10m])) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mais de 3 reconexões em 10 minutos"
+          description: "O RabbitMQ ou o banco estão instáveis para o despachante ou para o worker."
+          runbook: "docs/operacao-filas.md#alerta-reconexoesfrequentes"
+
+      # O processo responde às métricas mas o laço do despachante parou de andar.
+      - alert: DespachanteParado
+        expr: time() - academico_despachante_ultimo_ciclo_timestamp_segundos > 60
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "O despachante da outbox não completa um ciclo há mais de 1 minuto"
+          description: "Travado ou preso reconectando. Os eventos esperam na outbox."
+          runbook: "docs/operacao-filas.md#alerta-despachanteparado"
+
+  - name: simpa-coleta
+    rules:
+      - alert: ColetaDeMetricasAusente
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sem métricas de {{ $labels.job }} há mais de 1 minuto"
+          description: "O alvo {{ $labels.instance }} não responde à coleta. Sem métricas, os outros alertas ficam cegos para ele."
+          runbook: "docs/operacao-filas.md#alerta-coletademetricasausente"
+
+      # O alvo sumiu da configuração: não há nem a série `up`.
+      - alert: AlvoDeColetaSumiu
+        expr: >-
+          absent(up{job="rabbitmq"}) or absent(up{job="rabbitmq-filas"})
+          or absent(up{job="academico-despachante"}) or absent(up{job="analitico-worker"})
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "O alvo de coleta {{ $labels.job }} não existe mais"
+          description: "Nenhuma série `up` para o alvo. A configuração da coleta mudou ou o Prometheus perdeu o alvo."
+          runbook: "docs/operacao-filas.md#alerta-coletademetricasausente"

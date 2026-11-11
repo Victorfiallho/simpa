@@ -1,0 +1,111 @@
+# Testes que precisam do ambiente completo (etapa 9): entre serviços, de navegador e a prova de
+# restauração. São lentos (constroem as imagens e sobem 14 containers), por isso ficam fora do
+# ci.yml, que continua rápido. Rodam em pull request, em push para a main, toda segunda-feira
+# (a restauração semanal do plano de backup) e sob demanda.
+name: Integração e restauração
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: integracao-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Sempre projeto e arquivos explícitos: nunca toca em outro ambiente (ver compose.test.yml).
+  COMPOSE: docker compose --env-file .env.test -p simpa-test -f compose.test.yml -f compose.monitoramento.yml
+
+jobs:
+  integracao:
+    name: Ambiente completo (serviços, navegador, restauração)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Credenciais sintéticas de teste
+        run: |
+          cp .env.test.example .env.test
+          cp .env.restore-test.example .env.restore-test
+
+      - name: Subir o ambiente isolado
+        run: |
+          $COMPOSE up -d --build
+          # `up --wait` falha em quem fica `unhealthy` por um instante durante a subida; aqui se
+          # espera todos ficarem saudáveis ao mesmo tempo, com prazo.
+          for i in $(seq 1 100); do
+            ruins=$($COMPOSE ps -a --format '{{.Service}} {{.Health}}' | grep -v ' healthy$' || true)
+            [ -z "$ruins" ] && exit 0
+            sleep 3
+          done
+          echo "Não ficaram saudáveis:"; echo "$ruins"; exit 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            tests/integration/requirements.txt
+            scripts/backup/requirements.txt
+      - run: pip install -r tests/integration/requirements.txt -r scripts/backup/requirements.txt
+
+      - name: Testes entre serviços
+        run: pytest tests/integration -q
+
+      - uses: actions/setup-node@v4
+        if: ${{ !cancelled() }}
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Testes de navegador (Playwright)
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+
+      - name: Restauração de um backup em ambiente vazio
+        if: always()
+        run: |
+          # Chave descartável, só para esta execução (nunca reutilizada nem guardada).
+          PYTHONPATH=scripts/backup python -c "import cripto, os, pathlib; cripto.gerar_chave(pathlib.Path(os.environ['RUNNER_TEMP']) / 'chave.b64')"
+          python scripts/backup/provar_restauracao.py \
+            --chave "$RUNNER_TEMP/chave.b64" --pasta "$RUNNER_TEMP/backups" \
+            --relatorio "$RUNNER_TEMP/restauracao.json"
+
+      - name: Relatório da restauração
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-restauracao
+          if-no-files-found: ignore
+          retention-days: 30
+          path: ${{ runner.temp }}/restauracao.json
+
+      # O relatório do Playwright guarda traces que podem conter o token do ambiente de teste
+      # (sintético e de curta duração); por isso só é publicado quando algo falha.
+      - name: Relatório do Playwright (só se falhou)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-playwright
+          if-no-files-found: ignore
+          retention-days: 7
+          path: frontend/playwright-report
+
+      - name: Logs dos containers (só se algo falhou)
+        if: failure()
+        run: $COMPOSE logs --no-color --tail 200
+
+      - name: Desmontar (somente os projetos de teste)
+        if: always()
+        run: |
+          $COMPOSE down -v
+          docker compose --env-file .env.restore-test -p simpa-restore-test -f compose.restore-test.yml down -v

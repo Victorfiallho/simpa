@@ -209,17 +209,18 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] Documentar no OpenAPI as respostas de cada rota: 400, 401, 403, 404, 422 e 500 no envelope `ErroPadrao` (`core/openapi.py`)
 - [x] Medir cobertura com `pytest-cov` (auth 90%, acadêmico 87%, analítico 95%); o CI exige 80% por serviço
 - [x] Testes de contrato das principais rotas: `tests/test_contrato.py` de cada serviço
-- [ ] Índices nas FKs e colunas de filtro; medir se listagens paginadas ficam abaixo de 300 ms
+- [x] Índices revisados contra as consultas reais (compostos filtro + ordenação, redundantes removidos); migrações conferidas contra os models por teste
+- [x] Medir no PostgreSQL com volume se as listagens paginadas ficam abaixo de 300 ms: ficam (10–25 ms com 3 mil alunos). As rotas agregadas do analítico levam ~3 s com 9 mil inscrições (D20); ver `docs/desempenho.md`
 - [ ] Refatoração final guiada pelo ruff e pela revisão em grupo
 
 ### 3.5 Documentação e apresentação — RNF05, RNF13
-- [ ] `docs/rastreabilidade.md`: matriz ligando cada RF/RNF a models, services, rotas e testes
+- [x] `docs/rastreabilidade.md`: matriz ligando cada RF/RNF a models, services, rotas e testes
 - [ ] Revisar UML de casos de uso, UML de classes e DER para refletir o código final
 - [ ] Atualizar `decisoes.md` com as decisões tomadas nas Fases 1–3
 - [ ] Relatório técnico final: arquitetura, justificativa das análises, exemplos de indicadores e reflexão sobre o processo
 - [ ] README final com passo a passo completo e prints
 - [ ] Roteiro do pitch e ensaio cronometrado da demonstração
-- [ ] Lista de melhorias futuras (ex.: deploy em nuvem, *outbox* para garantir a publicação dos eventos, HTTPS no gateway)
+- [ ] Lista de melhorias futuras (ex.: deploy em nuvem, HTTPS no gateway; o *outbox* dos eventos já foi feito, D14)
 
 **✔ Pronto quando:** todos os critérios de aceitação do SRS passam, o CI está verde, a matriz de rastreabilidade está completa e a demonstração roda do zero seguindo só o README.
 

@@ -1,13 +1,14 @@
 """Casos de uso de inscrições, avaliações e frequências (RF03, D01, D02, D10, D14).
 
-Depois do commit, cada alteração publica um evento para o analítico recalcular o risco.
+Cada alteração grava, na mesma transação, um evento na outbox para o analítico recalcular o
+risco. Quem publica no RabbitMQ é o despachante (`app.events.despachante`).
 """
 
 from sqlalchemy.orm import Session
 
 from app.core.excecoes import Conflito, RegraDeNegocioViolada
 from app.core.seguranca import UsuarioAtual
-from app.events import publicador
+from app.events.outbox import registrar_evento
 from app.models import Avaliacao, Frequencia, Inscricao, RegistroSemanal
 from app.repositories.academico import (
     AlunoRepositorio,
@@ -30,8 +31,9 @@ from app.services.comum import (
 from app.services.escopo import garantir_inscricao_propria
 
 
-def _avisar(evento: str, inscricao_id: int) -> None:
-    publicador.publicar_sem_falhar(evento, {"inscricao_id": inscricao_id})
+def _avisar(db: Session, evento: str, inscricao_id: int) -> None:
+    """Registra o evento na transação em andamento; vai junto com o `commit()` da alteração."""
+    registrar_evento(db, evento, {"inscricao_id": inscricao_id})
 
 
 # ---------- Inscrições ----------
@@ -53,9 +55,9 @@ def criar_inscricao(db: Session, dados: InscricaoCriacao) -> Inscricao:
     if repositorio.existe(Inscricao.aluno_id == aluno.id, Inscricao.disciplina_id == disciplina.id):
         raise Conflito("O aluno já está inscrito nesta disciplina.", codigo="INSCRICAO_DUPLICADA")
     inscricao = repositorio.adicionar(Inscricao(aluno_id=aluno.id, disciplina_id=disciplina.id))
+    _avisar(db, "inscricao.alterada", inscricao.id)
     db.commit()
     db.refresh(inscricao)
-    _avisar("inscricao.alterada", inscricao.id)
     return inscricao
 
 
@@ -64,8 +66,8 @@ def atualizar_inscricao(db: Session, inscricao_id: int, dados: InscricaoAtualiza
     inscricao = repositorio.obter_ou_falhar(inscricao_id)
     garantir_disciplina_aberta(inscricao.disciplina)
     repositorio.atualizar(inscricao, mudancas(dados))
+    _avisar(db, "inscricao.alterada", inscricao.id)
     db.commit()
-    _avisar("inscricao.alterada", inscricao.id)
     return inscricao
 
 
@@ -75,8 +77,8 @@ def cancelar_inscricao(db: Session, inscricao_id: int) -> Inscricao:
     inscricao = repositorio.obter_ou_falhar(inscricao_id)
     garantir_disciplina_aberta(inscricao.disciplina)
     repositorio.atualizar(inscricao, {"status": "cancelada"})
+    _avisar(db, "inscricao.alterada", inscricao.id)
     db.commit()
-    _avisar("inscricao.alterada", inscricao.id)
     return inscricao
 
 
@@ -88,9 +90,9 @@ def criar_avaliacao(db: Session, dados: AvaliacaoCriacao, usuario: UsuarioAtual)
     garantir_inscricao_propria(inscricao, usuario)
     garantir_lancamento_permitido(inscricao)
     avaliacao = AvaliacaoRepositorio(db).adicionar(Avaliacao(**dados.model_dump()))
+    _avisar(db, "avaliacao.alterada", inscricao.id)
     db.commit()
     db.refresh(avaliacao)
-    _avisar("avaliacao.alterada", inscricao.id)
     return avaliacao
 
 
@@ -102,9 +104,9 @@ def atualizar_avaliacao(
     garantir_inscricao_propria(avaliacao.inscricao, usuario)
     garantir_lancamento_permitido(avaliacao.inscricao)
     repositorio.atualizar(avaliacao, mudancas(dados))
+    _avisar(db, "avaliacao.alterada", avaliacao.inscricao_id)
     db.commit()
     db.refresh(avaliacao)
-    _avisar("avaliacao.alterada", avaliacao.inscricao_id)
     return avaliacao
 
 
@@ -116,8 +118,8 @@ def remover_avaliacao(db: Session, avaliacao_id: int, usuario: UsuarioAtual) -> 
     garantir_lancamento_permitido(avaliacao.inscricao)
     inscricao_id = avaliacao.inscricao_id
     repositorio.remover(avaliacao)
+    _avisar(db, "avaliacao.alterada", inscricao_id)
     db.commit()
-    _avisar("avaliacao.alterada", inscricao_id)
 
 
 # ---------- Frequências ----------
@@ -143,8 +145,8 @@ def criar_frequencia(db: Session, dados: FrequenciaCriacao, usuario: UsuarioAtua
     garantir_lancamento_permitido(inscricao)
     _periodo_livre(repositorio, inscricao.id, dados.periodo_avaliacao)
     frequencia = repositorio.adicionar(Frequencia(**dados.model_dump()))
+    _avisar(db, "frequencia.alterada", inscricao.id)
     db.commit()
-    _avisar("frequencia.alterada", inscricao.id)
     return frequencia
 
 
@@ -169,8 +171,8 @@ def atualizar_frequencia(
         )
 
     repositorio.atualizar(frequencia, alteracoes)
+    _avisar(db, "frequencia.alterada", frequencia.inscricao_id)
     db.commit()
-    _avisar("frequencia.alterada", frequencia.inscricao_id)
     return frequencia
 
 
@@ -181,8 +183,8 @@ def remover_frequencia(db: Session, frequencia_id: int, usuario: UsuarioAtual) -
     garantir_lancamento_permitido(frequencia.inscricao)
     inscricao_id = frequencia.inscricao_id
     repositorio.remover(frequencia)
+    _avisar(db, "frequencia.alterada", inscricao_id)
     db.commit()
-    _avisar("frequencia.alterada", inscricao_id)
 
 
 # ---------- Registro semanal (presença e atividades) ----------

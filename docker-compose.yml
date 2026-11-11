@@ -81,7 +81,7 @@ services:
   academico:
     <<: *servico-python
     build: ./services/academico
-    environment:
+    environment: &academico-env
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/academico_db
       ROOT_PATH: /api/academico
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
@@ -93,6 +93,27 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+
+  # Mesmo código do acadêmico, mas rodando o despachante da outbox: publica no RabbitMQ os eventos
+  # gravados junto com cada alteração (D14). Sem ele, nenhum evento sai.
+  academico-despachante:
+    build: ./services/academico
+    command: ["python", "-m", "app.events.despachante"]
+    restart: unless-stopped
+    environment: *academico-env
+    healthcheck:
+      # O despachante toca este arquivo a cada ciclo; sem toque há 30 s, algo travou.
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/despachante.ativo') < 30 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      # Só começa depois que a API aplicou as migrações (a tabela evento_outbox).
+      academico:
         condition: service_healthy
 
   analitico:

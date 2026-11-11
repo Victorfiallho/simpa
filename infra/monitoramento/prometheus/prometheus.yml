@@ -1,0 +1,40 @@
+# Coleta de métricas do SIMPA (etapa 6). Só rede interna do Compose: nada aqui é publicado na internet.
+# Os nomes das métricas foram conferidos no RabbitMQ 4.4.0 real (rabbitmq_prometheus), não supostos.
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  external_labels:
+    sistema: simpa
+
+rule_files:
+  - /etc/prometheus/regras.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # Métricas globais do RabbitMQ: taxas de publicação, entrega, confirmação, mensagens sem destino.
+  - job_name: rabbitmq
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+
+  # Métricas POR FILA (mensagens prontas, não confirmadas e consumidores). Só estas famílias.
+  - job_name: rabbitmq-filas
+    metrics_path: /metrics/detailed
+    params:
+      family: [queue_coarse_metrics, queue_consumer_count]
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+
+  # Despachante da outbox do acadêmico: idade do evento pendente, publicações e reconexões.
+  - job_name: academico-despachante
+    static_configs:
+      - targets: ["academico-despachante:9100"]
+
+  # Worker do analítico: eventos por resultado, latência de ponta a ponta e reconexões.
+  - job_name: analitico-worker
+    static_configs:
+      - targets: ["analitico-worker:9100"]

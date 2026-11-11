@@ -1,0 +1,5 @@
+# Dependências da suíte entre serviços (tests/integration). Instale num ambiente virtual:
+#   python3 -m venv .venv-integracao && .venv-integracao/bin/pip install -r tests/integration/requirements.txt
+# A suíte só fala HTTP com o gateway e controla o Docker Compose; não importa os serviços.
+pytest==9.1.1
+httpx==0.28.1

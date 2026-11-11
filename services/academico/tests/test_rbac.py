@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.conftest import PROFESSOR_VALIDO
+from tests.conftest import OUTRO_PROFESSOR_VALIDO, PROFESSOR_VALIDO
 
 NOTA = {"tipo_avaliacao": "prova", "periodo_avaliacao": "N1", "nota": 7, "peso": 1}
 FREQUENCIA = {"periodo_avaliacao": "N1", "aulas_previstas": 32, "faltas": 2}
@@ -241,3 +241,78 @@ def test_coordenador_nao_reabre_disciplina_encerrada(cliente, usuario, disciplin
         cliente.patch(f"/disciplinas/{disciplina['id']}", json={"status": "ativa"}).status_code
         == 200
     )
+
+
+def _ids(corpo: dict, lista: str) -> list[int]:
+    return [item["id"] for insc in corpo["inscricoes"] for item in insc[lista]]
+
+
+def _inscricoes_citadas(valor) -> set[int]:
+    """Todo `inscricao_id` que aparece em qualquer nível do corpo, mais o `id` das inscrições."""
+    achados: set[int] = set()
+    if isinstance(valor, dict):
+        if "inscricao_id" in valor:
+            achados.add(valor["inscricao_id"])
+        for chave, filho in valor.items():
+            if chave == "inscricoes":
+                achados |= {i["id"] for i in filho}
+            achados |= _inscricoes_citadas(filho)
+    elif isinstance(valor, list):
+        for filho in valor:
+            achados |= _inscricoes_citadas(filho)
+    return achados
+
+
+def test_consulta_integrada_do_aluno_nao_vaza_a_disciplina_de_outro_professor(
+    cliente, usuario, turma, aluno, disciplina, inscricao
+):
+    """Aluno compartilhado: cada professor vê só o que lançou nas suas disciplinas.
+
+    Regressão: a consulta integrada (RF04) só conferia se o aluno tinha ALGUMA inscrição do
+    professor e devolvia todas, inclusive as notas de disciplinas de outro professor (D03).
+    """
+    outra = cliente.post(
+        "/disciplinas",
+        json={
+            "nome": "Álgebra Linear",
+            "carga_horaria": 60,
+            "periodo_letivo": "2026.2",
+            "turma_id": turma["id"],
+            "professor_id": OUTRO_PROFESSOR_VALIDO,
+        },
+    ).json()["dados"]
+    inscricao_b = cliente.post(
+        "/inscricoes", json={"aluno_id": aluno["id"], "disciplina_id": outra["id"]}
+    ).json()["dados"]
+    nota_a = lancar_nota(cliente, inscricao)
+    nota_b = lancar_nota(cliente, inscricao_b)
+    freq_b = lancar_frequencia(cliente, inscricao_b)
+
+    rotas = (f"/alunos/{aluno['id']}", f"/alunos/matricula/{aluno['matricula']}")
+
+    como(usuario, "professor", PROFESSOR_VALIDO)
+    for rota in rotas:
+        corpo = cliente.get(rota).json()["dados"]
+        assert [i["id"] for i in corpo["inscricoes"]] == [inscricao["id"]]
+        assert [a["id"] for i in corpo["inscricoes"] for a in i["avaliacoes"]] == [nota_a["id"]]
+        assert _inscricoes_citadas(corpo) == {inscricao["id"]}
+        assert "Álgebra Linear" not in cliente.get(rota).text
+        assert nota_b["id"] not in _ids(corpo, "avaliacoes")
+        assert freq_b["id"] not in _ids(corpo, "frequencias")
+
+    como(usuario, "professor", OUTRO_PROFESSOR_VALIDO)
+    for rota in rotas:
+        corpo = cliente.get(rota).json()["dados"]
+        assert [i["id"] for i in corpo["inscricoes"]] == [inscricao_b["id"]]
+        assert _inscricoes_citadas(corpo) == {inscricao_b["id"]}
+        assert "Estatística Aplicada" not in cliente.get(rota).text
+
+    # Quem é da gestão continua vendo tudo.
+    como(usuario, "coordenador")
+    for rota in rotas:
+        assert len(cliente.get(rota).json()["dados"]["inscricoes"]) == 2
+
+    # E o professor A não altera a nota da disciplina do professor B.
+    como(usuario, "professor", PROFESSOR_VALIDO)
+    alteracao = cliente.patch(f"/avaliacoes/{nota_b['id']}", json={"nota": 10})
+    assert alteracao.status_code == 403

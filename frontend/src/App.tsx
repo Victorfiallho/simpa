@@ -11,8 +11,10 @@ import { Alertas } from './paginas/Alertas';
 import { Alunos } from './paginas/Alunos';
 import { Analises } from './paginas/Analises';
 import { Auditoria } from './paginas/Auditoria';
+import { Cadastros } from './paginas/Cadastros';
 import { Cenarios } from './paginas/Cenarios';
 import { Copiloto } from './paginas/Copiloto';
+import { Lancamentos } from './paginas/Lancamentos';
 import { Login } from './paginas/Login';
 import { MeuApoio } from './paginas/MeuApoio';
 import { MeuDesempenho } from './paginas/MeuDesempenho';
@@ -26,6 +28,24 @@ export function App() {
   const { usuario } = useSessao();
   if (!usuario) return <Login />;
   return usuario.role === 'aluno' ? <AplicacaoDoAluno /> : <Aplicacao />;
+}
+
+/** A API entrega no máximo 100 turmas por página; o filtro busca as páginas seguintes. */
+const LIMITE_DE_PAGINAS = 20;
+
+async function buscarTodasAsTurmas(): Promise<{ lista: Turma[]; omitidas: number }> {
+  const lista: Turma[] = [];
+  let total = 0;
+  for (let pagina = 1; pagina <= LIMITE_DE_PAGINAS; pagina += 1) {
+    const r = await api<RespostaPaginada<Turma>>(
+      `/academico/turmas?limite=100&pagina=${pagina}&ordenar_por=nome`,
+    );
+    lista.push(...r.dados);
+    total = r.total_registros;
+    if (lista.length >= total || r.dados.length === 0) break;
+  }
+  // Só sobra algo omitido se passar do limite de páginas: o cabeçalho avisa em vez de esconder.
+  return { lista, omitidas: Math.max(0, total - lista.length) };
 }
 
 /** O aluno só vê o que é dele: não busca turmas nem painel geral (o servidor recusaria). */
@@ -62,19 +82,14 @@ function AplicacaoDoAluno() {
 function Aplicacao() {
   const [filtros, setFiltros] = useState<Filtros>({ periodo: null, turmaId: null });
   const { pathname } = useLocation();
+  const { usuario } = useSessao();
 
   // Cada tela nova começa do topo.
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  const turmas = useDados(
-    () =>
-      api<RespostaPaginada<Turma>>('/academico/turmas?limite=100&ordenar_por=nome').then(
-        (r) => r.dados,
-      ),
-    [],
-  );
+  const turmas = useDados(buscarTodasAsTurmas, []);
 
   const consulta = new URLSearchParams();
   if (filtros.turmaId) consulta.set('turma_id', String(filtros.turmaId));
@@ -84,12 +99,29 @@ function Aplicacao() {
     [consulta.toString()],
   );
 
-  const listaDeTurmas = turmas.dados ?? [];
+  const listaDeTurmas = turmas.dados?.lista ?? [];
+  const turmasOmitidas = turmas.dados?.omitidas ?? 0;
   const periodoMaisRecente = [...listaDeTurmas.map((t) => t.periodo_letivo)].sort().at(-1) ?? null;
 
   const pagina = (titulo: string, conteudo: ReactNode) => (
     <>
-      <Cabecalho titulo={titulo} turmas={listaDeTurmas} filtros={filtros} aoMudar={setFiltros} />
+      <Cabecalho
+        titulo={titulo}
+        turmas={listaDeTurmas}
+        turmasOmitidas={turmasOmitidas}
+        filtros={filtros}
+        aoMudar={setFiltros}
+      />
+      <main className="painel">{conteudo}</main>
+    </>
+  );
+
+  // Cadastros e lançamentos não usam os filtros de período e turma: o cabeçalho vai sem eles.
+  const paginaSemFiltros = (titulo: string, conteudo: ReactNode) => (
+    <>
+      <header className="cabecalho">
+        <h1>{titulo}</h1>
+      </header>
       <main className="painel">{conteudo}</main>
     </>
   );
@@ -134,6 +166,12 @@ function Aplicacao() {
               <Cenarios turmaId={filtros.turmaId} periodo={filtros.periodo} />,
             )}
           />
+          {(usuario?.role === 'admin' || usuario?.role === 'coordenador') && (
+            <Route path="/cadastros" element={paginaSemFiltros('Cadastros', <Cadastros aoMudarTurmas={turmas.recarregar} />)} />
+          )}
+          {(usuario?.role === 'admin' || usuario?.role === 'professor') && (
+            <Route path="/lancamentos" element={paginaSemFiltros('Lançamentos', <Lancamentos />)} />
+          )}
           <Route path="/copiloto" element={pagina('Copiloto', <Copiloto />)} />
           <Route path="/pendencias" element={pagina('Pendências', <Pendencias />)} />
           <Route path="/auditoria" element={pagina('Auditoria', <Auditoria />)} />

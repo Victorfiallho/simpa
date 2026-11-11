@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.excecoes import Conflito
+from app.core.paginacao import Paginacao
 from app.core.seguranca import criar_token, gerar_hash_senha, senha_confere
 from app.models import Usuario
 from app.schemas import Token, UsuarioResumo
@@ -96,3 +97,23 @@ def garantir_usuarios_demo(db: Session, senha: str, aluno_id: int | None = None)
     ):
         criar_usuario(db, "aluno.demo", "aluno.demo@simpa.dev", senha, "aluno", aluno_id)
         logger.info("usuario de demonstracao criado", extra={"dados": {"usuario": "aluno.demo"}})
+
+
+def listar(
+    db: Session, pagina: Paginacao, *, role: str | None = None, ativo: bool | None = None
+) -> tuple[list[Usuario], int]:
+    """Usuários por nome de usuário, com filtro opcional de perfil e de situação."""
+    condicoes = []
+    if role is not None:
+        condicoes.append(Usuario.role == role)
+    if ativo is not None:
+        condicoes.append(Usuario.ativo == ativo)
+    total = db.scalar(select(func.count()).select_from(Usuario).where(*condicoes)) or 0
+    itens = db.scalars(
+        select(Usuario)
+        .where(*condicoes)
+        .order_by(Usuario.nome_usuario, Usuario.id)
+        .limit(pagina.limite)
+        .offset(pagina.deslocamento)
+    ).all()
+    return list(itens), total

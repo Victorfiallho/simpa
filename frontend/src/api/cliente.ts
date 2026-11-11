@@ -67,10 +67,13 @@ async function requisitar(caminho: string, opcoes: RequestInit = {}): Promise<Re
   }
   if (!resposta.ok) {
     const corpo = (await resposta.json().catch(() => null)) as Resposta<unknown> | null;
+    // Erros de validação trazem os campos: mostrar qual campo falhou ajuda a corrigir.
+    const detalhe = (corpo?.erro?.campos ?? []).map((c) => `${c.campo}: ${c.mensagem}`).join('; ');
+    const mensagem = corpo?.mensagem ?? 'Não foi possível completar a operação.';
     throw new ErroApi(
       resposta.status,
       corpo?.erro?.codigo ?? 'ERRO',
-      corpo?.mensagem ?? 'Não foi possível completar a operação.',
+      detalhe ? `${mensagem} (${detalhe})` : mensagem,
     );
   }
   return resposta;

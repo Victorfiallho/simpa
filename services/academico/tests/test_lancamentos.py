@@ -236,3 +236,29 @@ def test_nao_cria_disciplina_em_turma_encerrada(cliente, turma):
 
     assert resposta.status_code == 409
     assert resposta.json()["erro"]["codigo"] == "TURMA_ENCERRADA"
+
+
+def test_lancamentos_filtram_por_disciplina(cliente, aluno, turma, disciplina, inscricao):
+    """A tela de lançamento lista notas e frequências de uma disciplina de uma vez."""
+    outra = cliente.post(
+        "/disciplinas",
+        json={
+            "nome": "Álgebra Linear",
+            "carga_horaria": 60,
+            "periodo_letivo": "2026.2",
+            "turma_id": turma["id"],
+        },
+    ).json()["dados"]
+    outra_inscricao = cliente.post(
+        "/inscricoes", json={"aluno_id": aluno["id"], "disciplina_id": outra["id"]}
+    ).json()["dados"]
+    for insc in (inscricao, outra_inscricao):
+        assert nota(cliente, insc).status_code == 201
+        assert frequencia(cliente, insc).status_code == 201
+
+    for rota in ("/avaliacoes", "/frequencias"):
+        da_disciplina = cliente.get(rota, params={"disciplina_id": disciplina["id"]}).json()
+        assert [i["inscricao_id"] for i in da_disciplina["dados"]] == [inscricao["id"]]
+        assert cliente.get(rota).json()["total_registros"] == 2
+        sem_nada = cliente.get(rota, params={"disciplina_id": 999999}).json()
+        assert sem_nada["dados"] == []

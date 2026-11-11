@@ -8,7 +8,7 @@ export interface Resposta<T> {
   status: 'sucesso' | 'erro';
   mensagem: string;
   dados: T;
-  erro: { codigo: string; mensagem: string } | null;
+  erro: { codigo: string; mensagem: string; campos?: { campo: string; mensagem: string }[] } | null;
 }
 
 export interface RespostaPaginada<T> extends Resposta<T[]> {
@@ -322,4 +322,68 @@ export interface Perfil {
   uf: string | null;
   tem_foto: boolean;
   preenchimento_percentual: number;
+}
+
+// ---------- Cadastros e lançamentos (serviço acadêmico) ----------
+
+export interface TurmaCadastro {
+  id: number;
+  codigo: string | null;
+  nome: string;
+  curso: string;
+  periodo_letivo: string;
+  turno: string;
+  sala: string | null;
+  status: string;
+}
+
+export interface DisciplinaCadastro {
+  id: number;
+  codigo: string | null;
+  nome: string;
+  carga_horaria: number;
+  periodo_letivo: string;
+  turma_id: number;
+  professor_id: number | null;
+  status: string;
+}
+
+export interface AlunoCadastro {
+  id: number;
+  matricula: string;
+  nome_completo: string;
+  cpf: string | null;
+  email: string;
+  telefone: string | null;
+  data_nascimento: string | null;
+  curso: string;
+  turma_id: number;
+  status: string;
+}
+
+export interface InscricaoCadastro {
+  id: number;
+  aluno_id: number;
+  disciplina_id: number;
+  status: string;
+  criado_em: string;
+}
+
+export interface NotaLancada {
+  id: number;
+  inscricao_id: number;
+  tipo_avaliacao: string;
+  periodo_avaliacao: string;
+  nota: string;
+  peso: string;
+  atualizado_em: string;
+}
+
+export interface FrequenciaLancada {
+  id: number;
+  inscricao_id: number;
+  periodo_avaliacao: string;
+  aulas_previstas: number;
+  faltas: number;
+  frequencia_percentual: string;
 }

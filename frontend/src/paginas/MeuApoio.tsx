@@ -7,7 +7,15 @@ import { Conteudo } from '../componentes/Conteudo';
 import { formatarDataHora } from '../dados/formato';
 import { ROTULO_APOIO } from './Pendencias';
 
-const MOTIVOS = ['Dificuldade no conteúdo', 'Faltas', 'Questão pessoal', 'Outro'];
+// Precisa ser igual a MOTIVOS_APOIO em services/analitico/app/models/apoio.py: o backend recusa
+// qualquer outro texto. O teste test_motivos_do_front_sao_os_do_backend (analítico) confere.
+const MOTIVOS = [
+  'Dificuldade com o conteúdo',
+  'Notas abaixo do esperado',
+  'Muitas faltas ou frequência baixa',
+  'Questão pessoal ou de saúde',
+  'Outro motivo',
+];
 
 /** Pedido de apoio à coordenação e acompanhamento dos pedidos já enviados (RF07). */
 export function MeuApoio() {

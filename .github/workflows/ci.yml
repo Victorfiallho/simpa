@@ -28,6 +28,28 @@ jobs:
             (cd "services/$servico" && pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=80) || exit 1
             echo "::endgroup::"
           done
+      - name: Contrato entre o front e o backend (valores enumerados)
+        run: pytest -q tests/contrato
+      - name: Criptografia e recusas do backup (sem Docker)
+        run: pytest -q tests/backup
+
+  monitoramento:
+    name: Monitoramento (regras de alerta e configuração)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configuração e testes das regras do Prometheus (promtool)
+        run: |
+          docker run --rm -v "$PWD/infra/monitoramento/prometheus:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v2.55.1 check config /etc/prometheus/prometheus.yml
+          docker run --rm -v "$PWD/infra/monitoramento/prometheus:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v2.55.1 test rules /etc/prometheus/regras.test.yml
+      - name: Configuração do Alertmanager (amtool)
+        run: docker run --rm -v "$PWD/infra/monitoramento/alertmanager:/etc/alertmanager:ro" --entrypoint amtool prom/alertmanager:v0.27.0 check-config /etc/alertmanager/alertmanager.yml
+      - name: Dashboard do Grafana é um JSON válido
+        run: python3 -m json.tool infra/monitoramento/grafana/dashboards/simpa-filas.json > /dev/null
+      - name: Compose do monitoramento é válido
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.yml -f compose.monitoramento.yml config --quiet
 
   frontend:
     name: Frontend (TypeScript e build)

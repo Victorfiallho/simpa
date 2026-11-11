@@ -27,6 +27,11 @@ CHAVE = "log.requisicao"
 
 logger = logging.getLogger("auth.eventos")
 
+# Broker indisponível: erros do AMQP e também os de rede. Com o contêiner do RabbitMQ parado o nome
+# dele deixa de existir na rede do Docker e o pika levanta `socket.gaierror`, que é um `OSError`
+# e NÃO um `AMQPError`. Sem capturá-lo, o processo morria em vez de reconectar.
+ERROS_DO_BROKER = (pika.exceptions.AMQPError, OSError)
+
 
 def declarar_topologia(canal: BlockingChannel) -> None:
     """Cria exchanges e filas se ainda não existirem (operação idempotente)."""
@@ -47,10 +52,22 @@ def processar(
         with get_sessionmaker()() as db:
             gravar_registro(db, mensagem["dados"])
         canal.basic_ack(delivery_tag=metodo.delivery_tag)
-    except Exception:
+    except Exception as erro:
         # Sem o corpo no log: ele traz IP e rota de um usuário.
         logger.exception("falha ao gravar auditoria")
-        canal.basic_nack(delivery_tag=metodo.delivery_tag, requeue=False)
+        # Direto na fila de falhas do auth (exchange padrão). Um `nack` sem reenfileirar passaria
+        # pela exchange de falhas, que é `fanout` e também entregaria à do analítico.
+        canal.basic_publish(
+            "",
+            FILA_FALHAS,
+            corpo,
+            pika.BasicProperties(
+                content_type="application/json",
+                delivery_mode=pika.DeliveryMode.Persistent,
+                headers={"x-erro": f"{type(erro).__name__}: {erro}"[:300], "x-chave": CHAVE},
+            ),
+        )
+        canal.basic_ack(delivery_tag=metodo.delivery_tag)
 
 
 def main() -> None:
@@ -65,7 +82,7 @@ def main() -> None:
                 canal.basic_consume(queue=FILA, on_message_callback=processar)
                 logger.info("aguardando registros de auditoria")
                 canal.start_consuming()
-        except pika.exceptions.AMQPConnectionError:
+        except ERROS_DO_BROKER:
             logger.warning("RabbitMQ indisponível; nova tentativa em 5 s")
             time.sleep(5)
 

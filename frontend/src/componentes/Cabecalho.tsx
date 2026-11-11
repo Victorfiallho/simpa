@@ -10,11 +10,13 @@ export interface Filtros {
 interface Props {
   titulo: string;
   turmas: Turma[];
+  /** Turmas que não couberam na lista (acima do limite de páginas). Zero na prática. */
+  turmasOmitidas?: number;
   filtros: Filtros;
   aoMudar: (filtros: Filtros) => void;
 }
 
-export function Cabecalho({ titulo, turmas, filtros, aoMudar }: Props) {
+export function Cabecalho({ titulo, turmas, turmasOmitidas = 0, filtros, aoMudar }: Props) {
   const periodos = [...new Set(turmas.map((t) => t.periodo_letivo))].sort().reverse();
   const turmasDoPeriodo = turmas.filter((t) => !filtros.periodo || t.periodo_letivo === filtros.periodo);
 
@@ -57,6 +59,12 @@ export function Cabecalho({ titulo, turmas, filtros, aoMudar }: Props) {
           <ChevronDown size={14} className="seta" aria-hidden="true" />
         </label>
       </div>
+      {turmasOmitidas > 0 && (
+        <p role="status" className="aviso-filtro">
+          A lista mostra {turmas.length} turmas; outras {turmasOmitidas} não aparecem. Filtre pelo
+          período ou use a tela de Cadastros.
+        </p>
+      )}
     </header>
   );
 }

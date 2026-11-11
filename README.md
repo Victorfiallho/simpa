@@ -22,12 +22,14 @@ flowchart LR
     GW --> AUTH[auth]
     GW --> ACAD[acadêmico]
     GW --> ANA[analítico]
-    ACAD -- "evento: nota/frequência alterada" --> MQ[(RabbitMQ)]
+    ACAD -- "evento gravado na outbox" --> DB
+    DSP[academico-despachante] -- "publica a outbox" --> MQ[(RabbitMQ)]
     MQ --> WK[analitico-worker]
     ANA -. "/internal (HTTP)" .-> ACAD
     AUTH --> DB[(PostgreSQL<br/>1 banco por serviço)]
     ACAD --> DB
     ANA --> DB
+    DSP --> DB
     WK --> DB
 ```
 
@@ -38,7 +40,8 @@ flowchart LR
 | `auth` | Login, emissão de JWT (RS256), usuários e perfis | RF09, D03, D15 |
 | `academico` | Turmas, disciplinas, alunos, inscrições, notas e frequência | RF01–RF04, RF08, D10 |
 | `analitico` | Painel, indicadores, interpretação automática, predição por regressão, recomendações, histórico de risco e relatórios | RF05–RF07, RF11, D21 |
-| `analitico-worker` | Consome os eventos do acadêmico e recalcula o risco | RF03, D11, D14 |
+| `academico-despachante` | Publica no RabbitMQ os eventos gravados na outbox do acadêmico, com confirmação do broker. **Sem ele nenhum evento sai** | RF03, D14 |
+| `analitico-worker` | Consome os eventos, recalcula o risco, ignora repetidos e manda o que falhou para a fila de falhas | RF03, D11, D14 |
 | `postgres` | PostgreSQL 17 com `auth_db`, `academico_db` e `analitico_db` | RNF08, D16 |
 | `rabbitmq` | Fila de eventos entre os serviços | D14 |
 
@@ -49,11 +52,12 @@ flowchart LR
 | Interface | React + Vite + TypeScript, Recharts, Lucide, fonte Inter |
 | APIs | FastAPI + Pydantic |
 | Persistência | SQLAlchemy + Alembic + PostgreSQL |
-| Mensageria | RabbitMQ |
+| Mensageria | RabbitMQ (pika), padrão outbox |
+| Observabilidade | Prometheus, Alertmanager, Grafana |
 | Gateway | nginx |
 | Autenticação | JWT RS256 (PyJWT) |
 | Análise | `Decimal` (estatística e risco), numpy (regressão), openpyxl e reportlab (relatórios) |
-| Qualidade | pytest + ruff |
+| Qualidade | pytest + ruff, Playwright (navegador), promtool (alertas) |
 | Ambiente | Docker + Docker Compose |
 
 ## Como rodar
@@ -128,6 +132,38 @@ ruff format --check .
 cd services/academico && pytest      # repita para auth e analitico
 ```
 
+### Testes com o ambiente completo
+
+Os testes entre serviços, os de navegador e a prova de restauração usam um ambiente **isolado** (`simpa-test`, só o gateway em `127.0.0.1:18080`, credenciais sintéticas), que não toca no de desenvolvimento:
+
+```bash
+cp .env.test.example .env.test
+docker compose --env-file .env.test -p simpa-test -f compose.test.yml up -d --build --wait
+```
+
+| Suíte | Onde | Como rodar |
+|---|---|---|
+| Entre serviços (HTTP e RabbitMQ reais) | `tests/integration` | [tests/integration/README.md](tests/integration/README.md) |
+| Navegador (Playwright) | `frontend/tests/e2e` | [frontend/tests/e2e/README.md](frontend/tests/e2e/README.md) |
+| Contrato front × backend | `tests/contrato` | `pytest tests/contrato` (sem Docker) |
+| Backup e restauração | `tests/backup` | `pytest tests/backup` (sem Docker) |
+
+No CI, `ci.yml` roda lint, testes dos serviços, contrato e backup; `integracao.yml` sobe o ambiente completo e roda as suítes acima (em pull request, na `main`, toda segunda-feira e sob demanda, cerca de 17 min).
+
+### Monitoramento das filas
+
+Camada separada, com Prometheus, Alertmanager e Grafana, para o ambiente de desenvolvimento ou de teste:
+
+```bash
+docker compose -f docker-compose.yml -f compose.monitoramento.yml up -d
+```
+
+Os painéis ficam só em `127.0.0.1`. Os alertas vão para um receptor local de teste; para e-mail ou chat é preciso definir o canal. O que fazer em cada alerta está em [docs/operacao-filas.md](docs/operacao-filas.md).
+
+### Backup e restauração
+
+`scripts/backup/` faz backup cifrado (AES-256-GCM) dos três bancos e das chaves de assinatura, e restaura **só** em ambiente descartável e vazio. A prova ponta a ponta roda em `compose.restore-test.yml`. **Versão mínima:** faltam retenção, agendamento e cópia externa. Resultado e pendências em [docs/evidencias-qualidade-operacao.md](docs/evidencias-qualidade-operacao.md).
+
 ### Gerar uma migração depois de alterar os models
 
 As migrações são de cada serviço e rodam dentro do container dele:
@@ -144,8 +180,14 @@ O arquivo gerado aparece em `services/academico/migrations/versions/` (a pasta �
 ```
 docker-compose.yml           todos os containers
 docker-compose.override.yml  ajustes de desenvolvimento (lido automaticamente)
+compose.test.yml             ambiente isolado de testes (projeto simpa-test)
+compose.restore-test.yml     ambiente descartável da prova de restauração
+compose.monitoramento.yml    Prometheus, Alertmanager e Grafana
 gateway/nginx.conf           rotas do gateway
 infra/postgres/init.sql      cria um banco por serviço
+infra/monitoramento/         regras de alerta, Alertmanager, Grafana e receptor local
+scripts/backup/              backup cifrado, restauração e prova de restauração
+tests/                       integration (entre serviços), contrato e backup
 frontend/                    interface em React + Vite + TypeScript (ver frontend/README.md)
 services/
   auth/                      ┐
@@ -179,6 +221,10 @@ docs/                        SRS, DER, decisões, UML, códigos de erro, roteiro
 - [Códigos de erro da API](docs/codigos-erro.md)
 - [Roteiro de demonstração do Marco 1](docs/demonstracao-marco1.md)
 - [Roteiro de demonstração do Marco 2](docs/demonstracao-marco2.md)
+- [Operação das filas e alertas](docs/operacao-filas.md)
+- [Evidências de qualidade e operação (testes, monitoramento, backup e restauração)](docs/evidencias-qualidade-operacao.md)
+- [Matriz de rastreabilidade (RNF13)](docs/rastreabilidade.md)
+- [Medição de desempenho (RNF10)](docs/desempenho.md)
 - [Roteiro da apresentação da Entrega 2](docs/roteiro-apresentacao-entrega2.md) (falas e divisão entre os integrantes)
 - [Roadmap](ROADMAP.md)
 

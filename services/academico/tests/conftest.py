@@ -4,9 +4,11 @@ Cada teste roda num SQLite em memória novo, com as mesmas constraints do Postgr
 (CHECK, UNIQUE e FKs com RESTRICT). O token e o serviço auth são simulados.
 """
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, delete, event, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -14,18 +16,41 @@ from app.core import auditoria
 from app.core.database import Base, get_db
 from app.core.excecoes import RegraDeNegocioViolada
 from app.core.seguranca import UsuarioAtual, usuario_atual
-from app.events import publicador
 from app.main import app
+from app.models import EventoOutbox
 from app.services import cadastros
 
 PROFESSOR_VALIDO = 3
+OUTRO_PROFESSOR_VALIDO = 4
+
+
+class EventosGravados:
+    """Eventos que ficaram na outbox, como lista de (chave, dados), do mais antigo ao mais novo."""
+
+    def __init__(self):
+        self.sessoes = None  # preenchido pela fixture `cliente`
+
+    def linhas(self) -> list[EventoOutbox]:
+        with self.sessoes() as db:
+            return list(
+                db.scalars(select(EventoOutbox).order_by(EventoOutbox.criado_em, EventoOutbox.id))
+            )
+
+    def __iter__(self):
+        return iter([(e.chave, json.loads(e.corpo)["dados"]) for e in self.linhas()])
+
+    def __eq__(self, outro):
+        return list(self) == outro
+
+    def clear(self):
+        with self.sessoes() as db:
+            db.execute(delete(EventoOutbox))
+            db.commit()
 
 
 @pytest.fixture
-def eventos(monkeypatch):
-    publicados: list[tuple[str, dict]] = []
-    monkeypatch.setattr(publicador, "publicar_sem_falhar", lambda c, d: publicados.append((c, d)))
-    return publicados
+def eventos():
+    return EventosGravados()
 
 
 @pytest.fixture
@@ -46,6 +71,7 @@ def cliente(monkeypatch, eventos, usuario):
 
     Base.metadata.create_all(engine)
     sessoes = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    eventos.sessoes = sessoes
 
     def _db():
         db = sessoes()
@@ -58,7 +84,7 @@ def cliente(monkeypatch, eventos, usuario):
             db.close()
 
     def _validar_professor(professor_id: int) -> None:
-        if professor_id != PROFESSOR_VALIDO:
+        if professor_id not in (PROFESSOR_VALIDO, OUTRO_PROFESSOR_VALIDO):
             raise RegraDeNegocioViolada("Professor inválido.", codigo="PROFESSOR_INVALIDO")
 
     monkeypatch.setattr(cadastros, "validar_professor", _validar_professor)

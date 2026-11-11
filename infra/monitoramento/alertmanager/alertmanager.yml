@@ -1,0 +1,24 @@
+# Alertmanager (etapa 6). O receptor é LOCAL, de teste: nada sai para pessoas nem canais externos.
+# Para um destino real (e-mail, chat), troque o receptor só depois de autorizado.
+route:
+  receiver: receptor-teste
+  group_by: [alertname, queue]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+
+receivers:
+  - name: receptor-teste
+    webhook_configs:
+      - url: http://receptor-alertas:8080/alertas
+        send_resolved: true
+
+# Menos ruído: um alerta que é consequência de outro não precisa aparecer junto.
+inhibit_rules:
+  # Sem consumidor, a fila cresce por consequência: avisa só da causa.
+  - source_matchers: [alertname="FilaSemConsumidor"]
+    target_matchers: [alertname="FilaCrescendo"]
+    equal: [queue]
+  # Sem coletar o RabbitMQ, "a fila sumiu das métricas" é consequência, não causa.
+  - source_matchers: [alertname="ColetaDeMetricasAusente", job="rabbitmq-filas"]
+    target_matchers: [alertname="FilaEsperadaAusente"]

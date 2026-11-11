@@ -1,0 +1,98 @@
+# SIMPA: monitoramento das filas (etapa 6). Camada que se soma a um projeto Compose do SIMPA.
+#
+# Ambiente de teste (o que foi validado):
+#   docker compose --env-file .env.test -p simpa-test -f compose.test.yml -f compose.monitoramento.yml up -d --wait
+# Desenvolvimento:
+#   docker compose -f docker-compose.yml -f compose.monitoramento.yml up -d    (defina GRAFANA_SENHA no .env)
+#
+# - Painéis só em 127.0.0.1 (Prometheus 19090, Alertmanager 19093, Grafana 13000): nada é publicado
+#   na internet. As métricas do RabbitMQ (15692), do despachante e do worker (9100) ficam só na rede
+#   interna do Compose.
+# - Versões fixas. Volumes próprios; retenção do Prometheus: 15 dias ou 2 GB, o que vier primeiro.
+# - O Alertmanager entrega a um receptor LOCAL de teste. Nada sai para pessoas nem canais externos.
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+    volumes:
+      - ./infra/monitoramento/prometheus:/etc/prometheus:ro
+      - prometheus-dados:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORTA:-19090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./infra/monitoramento/alertmanager:/etc/alertmanager:ro
+      - alertmanager-dados:/alertmanager
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORTA:-19093}:9093"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      receptor-alertas:
+        condition: service_healthy
+
+  # Receptor local de teste dos alertas (webhook). Guarda o que recebeu; não envia nada para fora.
+  receptor-alertas:
+    image: python:3.12-slim
+    restart: unless-stopped
+    command: ["python", "/receptor/receptor.py"]
+    volumes:
+      - ./infra/monitoramento/receptor:/receptor:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/saude', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_SENHA:?defina GRAFANA_SENHA no .env.test ou no .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./infra/monitoramento/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoramento/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-dados:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORTA:-13000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+volumes:
+  prometheus-dados:
+  alertmanager-dados:
+  grafana-dados:

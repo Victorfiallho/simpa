@@ -133,9 +133,11 @@ Exemplo: `TURMA ||--o{ ALUNO` significa que todo aluno pertence a exatamente uma
 | acadêmico | avaliacao | `CHECK(nota BETWEEN 0 AND 10)`, `CHECK(peso > 0)` | RF03 |
 | acadêmico | frequencia | `CHECK(aulas_previstas > 0)`, `CHECK(faltas BETWEEN 0 AND aulas_previstas)`, `UNIQUE(inscricao_id, periodo_avaliacao)` | RF03, D02 |
 | acadêmico | registro_semanal | `UNIQUE(inscricao_id, semana_inicio)`, `CHECK(atividades_entregues BETWEEN 0 AND atividades_previstas)` | RF07 |
-| analítico | resultado_risco | índice em `inscricao_id` (consulta do histórico) | D11 |
+| analítico | resultado_risco | índice `(inscricao_id, id)` (última linha e histórico da inscrição) | D11 |
 | analítico | atendimento_alerta | `UNIQUE(aluno_id, tipo, disciplina_id)`, `CHECK` em tipo, estado e nível | RF07 |
-| analítico | acompanhamento | índice em `aluno_id`, `CHECK` em tipo | RF07 |
+| analítico | acompanhamento | índice `(aluno_id, data, id)`, `CHECK` em tipo | RF07 |
+| analítico | solicitacao_apoio | índices `(aluno_id, id)` e `(estado, id)`; `historico_apoio` com `(solicitacao_id, id)` | RF07 |
+| auth | log_requisicao | índices `(usuario_id, timestamp)`, `(status_http, timestamp)` e `timestamp` (trilha do mais recente) | RF12 |
 | todos | FKs dentro do mesmo banco | `ON DELETE RESTRICT` (sem exclusão física com histórico) | Restrição 3 |
 
 ## O que fica de fora do banco (e por quê)

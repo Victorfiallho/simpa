@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.excecoes import AcessoNegado
 from app.core.seguranca import UsuarioAtual
-from app.models import Disciplina, Inscricao
+from app.models import Aluno, Disciplina, Inscricao
 
 NEGADO = "Você só pode acessar as suas próprias disciplinas."
 
@@ -76,3 +76,14 @@ def garantir_aluno_visivel(db: Session, aluno_id: int, usuario: UsuarioAtual) ->
         raise AcessoNegado(
             "Você só pode consultar alunos das suas disciplinas.", codigo="ALUNO_FORA_DO_ESCOPO"
         )
+
+
+def inscricoes_visiveis(aluno: Aluno, usuario: UsuarioAtual) -> list[Inscricao]:
+    """Inscrições do aluno que o usuário pode ver: o professor só vê as das suas disciplinas.
+
+    Sem isto, a consulta integrada (RF04) mostraria também as notas e frequências que outro
+    professor lançou para o mesmo aluno.
+    """
+    if not restrito(usuario):
+        return list(aluno.inscricoes)
+    return [i for i in aluno.inscricoes if i.disciplina.professor_id == usuario.id]
