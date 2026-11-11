@@ -64,6 +64,9 @@ def registrar_middleware_de_logs(app: FastAPI, logger: logging.Logger) -> None:
     async def _log_da_requisicao(request: Request, call_next):
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         token = request_id_atual.set(request_id)
+        # O tratador de erro inesperado roda por fora deste middleware; é por aqui que ele
+        # recebe o id para devolvê-lo na resposta 500 (excecoes.py).
+        request.state.request_id = request_id
         info: dict = {"usuario_id": None}
         token_info = usuario_atual_info.set(info)
         inicio = time.perf_counter()
