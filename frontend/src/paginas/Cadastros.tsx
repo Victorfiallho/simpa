@@ -14,6 +14,7 @@ import { useDados } from '../api/useDados';
 import { useNomesDeTurma } from '../api/useNomesDeTurma';
 import { Conteudo } from '../componentes/Conteudo';
 import { Gaveta } from '../componentes/Gaveta';
+import { LegendaObrigatorios, Rotulo } from '../componentes/Obrigatorio';
 
 // Cadastros do acadêmico (RF01, RF02) para admin e coordenação (D03). O professor não vê esta tela.
 
@@ -613,9 +614,10 @@ function FormularioEntidade<T extends { id: number; status: string }>({
       aoFechar={aoFechar}
     >
       <form className="coluna" onSubmit={enviar}>
+        {campos.some((c) => c.obrigatorio) && <LegendaObrigatorios />}
         {campos.map((c) => (
           <label className="campo" key={c.chave}>
-            {c.rotulo}
+            <Rotulo texto={c.rotulo} obrigatorio={c.obrigatorio} />
             {c.tipo === 'opcoes' ? (
               <select
                 value={valores[c.chave]}
@@ -761,7 +763,7 @@ function PainelInscricoes({ turmas }: { turmas: TurmaCadastro[] }) {
       {disciplina && (
         <form className="parametros" onSubmit={inscrever}>
           <label className="campo">
-            Matrícula do aluno
+            <Rotulo texto="Matrícula do aluno" obrigatorio />
             <input
               type="text"
               value={matricula}

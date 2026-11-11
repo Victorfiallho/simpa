@@ -4,6 +4,7 @@ import { api } from '../api/cliente';
 import type { Resposta, Solicitacao } from '../api/tipos';
 import { useDados } from '../api/useDados';
 import { Conteudo } from '../componentes/Conteudo';
+import { LegendaObrigatorios, Rotulo } from '../componentes/Obrigatorio';
 import { formatarDataHora } from '../dados/formato';
 import { ROTULO_APOIO } from './Pendencias';
 
@@ -56,6 +57,7 @@ export function MeuApoio() {
           </div>
         </div>
         <form className="coluna" onSubmit={enviar}>
+          <LegendaObrigatorios />
           <label className="campo">
             Motivo
             <select value={motivo} onChange={(e) => setMotivo(e.target.value)}>
@@ -65,7 +67,7 @@ export function MeuApoio() {
             </select>
           </label>
           <label className="campo">
-            Conte o que está acontecendo
+            <Rotulo texto="Conte o que está acontecendo" obrigatorio />
             <textarea
               value={texto}
               minLength={3}

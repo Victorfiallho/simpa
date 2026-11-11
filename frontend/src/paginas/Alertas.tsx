@@ -13,6 +13,7 @@ import type {
 } from '../api/tipos';
 import { useDados } from '../api/useDados';
 import { Conteudo } from '../componentes/Conteudo';
+import { LegendaObrigatorios, Rotulo } from '../componentes/Obrigatorio';
 
 const ROTULO_TIPO: Record<TipoAlerta, string> = {
   queda: 'Quebra de padrão',
@@ -287,6 +288,7 @@ function FormularioAcompanhamento({
           </button>
         </div>
         <form className="coluna" onSubmit={enviar}>
+          <LegendaObrigatorios />
           <label className="campo">
             Ação realizada
             <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoAcompanhamento)}>
@@ -298,11 +300,11 @@ function FormularioAcompanhamento({
             </select>
           </label>
           <label className="campo">
-            Data
+            <Rotulo texto="Data" obrigatorio />
             <input type="date" value={data} max={hoje()} required onChange={(e) => setData(e.target.value)} />
           </label>
           <label className="campo">
-            Observação curta
+            <Rotulo texto="Observação curta" obrigatorio />
             <textarea
               value={observacao}
               minLength={3}
