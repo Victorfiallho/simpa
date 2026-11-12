@@ -17,6 +17,8 @@ flowchart LR
     F2 --> F3["Fase 3 · Marco 3<br/>Segurança, testes<br/>e entrega final"]
     F2 -.-> N2["Nível 2<br/>Predição e<br/>recomendação<br/>✅ concluído"]
     N2 -.-> F3
+    F2 -.-> Q["Qualidade e operação<br/>testes, filas, backup, CI<br/>🟡 em andamento"]
+    Q -.-> F3
 ```
 
 | Fase | Marco | Semanas (enunciado) | Foco | Status |
@@ -24,7 +26,8 @@ flowchart LR
 | 0 | — | 1–3 | Estrutura em serviços, Docker, SRS, DER, decisões | ✅ Concluída |
 | 1 | Marco 1 | 4–7 | Models, migrações, CRUD, contrato da API | ✅ Concluída |
 | 2 | Marco 2 | 8–13 | Indicadores, risco, gráficos, relatórios | ✅ Concluída, com Nível 2 |
-| 3 | Marco 3 | 14–19 | Autenticação, RBAC, logs, testes, documentação final | ⬜ A fazer |
+| 3 | Marco 3 | 14–19 | Autenticação, RBAC, logs, testes, documentação final | 🟡 Em andamento: 3.1 a 3.4 prontos; falta a documentação e a entrega final (3.5) |
+| Q | transversal | — | Entrega confiável de eventos, testes entre serviços e de navegador, monitoramento, backup e restauração, CI de integração, segurança de borda | 🟡 Em andamento: ver [Qualidade e operação](#qualidade-e-operação--entrega-confiável-testes-monitoramento-e-backup) |
 
 ---
 
@@ -54,9 +57,9 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 - [x] **Separar as dependências.** Cada serviço tem o próprio `requirements.txt` só com o necessário para rodar; as ferramentas ficam no `requirements-dev.txt` da raiz.
 - [ ] **Adicionar as dependências que ainda faltam, no serviço e na fase em que forem usadas:** nenhuma no momento. Já entraram `bcrypt` (auth), `httpx`, `numpy`, `openpyxl` e `reportlab` (analítico); os cálculos usam `Decimal` da biblioteca padrão, sem `pandas`.
 - [x] **Criar o `main.py`** de cada serviço com a instância do FastAPI e a rota `GET /health`.
-- [ ] **Preencher a tabela "Equipe"** do README com os 8 integrantes e suas responsabilidades. Sugestão: dividir o grupo por serviço (auth, acadêmico, analítico, frontend).
+- [ ] **Preencher a tabela "Equipe"** do README com os 8 integrantes e suas responsabilidades. Sugestão: dividir o grupo por serviço (auth, acadêmico, analítico, frontend). *A seção foi removida do README; decidir se volta preenchida.*
 - [x] **Configurar CI no GitHub Actions** (`.github/workflows/ci.yml`) rodando `ruff check .`, o `pytest` de cada serviço e `docker compose build` em todo push e PR. Isso prova o RNF02 e o RNF07 automaticamente.
-- [ ] **Proteger a branch `main`**: merge só por PR com CI verde e ao menos 1 revisão.
+- [ ] **Proteger a branch `main`**: merge só por PR com CI verde e ao menos 1 revisão. *Conferido em 2026-11-12: a `main` do grupo ainda aparece sem proteção. Os checks que devem ser obrigatórios: `CI` e `Integração e restauração`.*
 
 ---
 
@@ -105,7 +108,7 @@ Pequenas correções encontradas na leitura do repositório. Vale resolver prime
 ### 1.6 Consulta integrada do aluno (serviço acadêmico) — RF04
 - [x] `GET /alunos/{id}` e `GET /alunos/matricula/{matricula}` com cadastro, notas e frequências
 - [x] Aluno inexistente → 404
-- [ ] Indicadores e risco entram na resposta na Fase 2 (vêm do analítico)
+- [x] Indicadores e risco entram na resposta (feito na Fase 2.3, vêm do analítico)
 
 ### 1.7 Dados sintéticos — RNF04, RNF08
 - [x] Seed (`docker compose exec academico python -m app.comandos.seed`) gerando turmas, disciplinas, alunos, inscrições, notas e frequências **totalmente sintéticos**, pela API, e não direto nos bancos
@@ -203,6 +206,7 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] Sanitização contra XSS em campos de texto: `<`, `>` e caracteres de controle são recusados (`core/entradas.py`)
 - [x] Proteção contra *Parameter Pollution*: parâmetro de query repetido responde 400 `PARAMETRO_REPETIDO`
 - [ ] CORS: com o front e as APIs atrás do mesmo gateway, não é preciso liberar outras origens; manter assim
+- [x] Cabeçalhos de segurança no gateway (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) e `Content-Security-Policy` da página (`script-src 'self'`, sem `unsafe-eval`), com teste de integração e teste de navegador que percorre as telas e falha se algo for bloqueado
 - [x] Revisar se algum painel expõe CPF ou e-mail sem necessidade: CPF só sai mascarado; o analítico só leva e-mail mascarado nos relatórios (testado)
 
 ### 3.4 Qualidade e desempenho — RNF03, RNF07, RNF10
@@ -211,18 +215,76 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 - [x] Testes de contrato das principais rotas: `tests/test_contrato.py` de cada serviço
 - [x] Índices revisados contra as consultas reais (compostos filtro + ordenação, redundantes removidos); migrações conferidas contra os models por teste
 - [x] Medir no PostgreSQL com volume se as listagens paginadas ficam abaixo de 300 ms: ficam (10–25 ms com 3 mil alunos). As rotas agregadas do analítico levam ~3 s com 9 mil inscrições (D20); ver `docs/desempenho.md`
+- [x] CI de integração (`.github/workflows/integracao.yml`): sobe o ambiente completo e roda os testes entre serviços, os de navegador e a prova de restauração
+- [ ] Decidir se as rotas agregadas do analítico (`painel`, `alertas`, `predicao`, `cenarios`, `relatorios`, ~3 s com 9 mil inscrições) serão otimizadas agora (D20)
 - [ ] Refatoração final guiada pelo ruff e pela revisão em grupo
 
 ### 3.5 Documentação e apresentação — RNF05, RNF13
 - [x] `docs/rastreabilidade.md`: matriz ligando cada RF/RNF a models, services, rotas e testes
 - [ ] Revisar UML de casos de uso, UML de classes e DER para refletir o código final
-- [ ] Atualizar `decisoes.md` com as decisões tomadas nas Fases 1–3
+- [ ] Atualizar `decisoes.md` com as decisões tomadas nas Fases 1–3 *(a D14, entrega confiável por outbox, já está atualizada)*
 - [ ] Relatório técnico final: arquitetura, justificativa das análises, exemplos de indicadores e reflexão sobre o processo
 - [ ] README final com passo a passo completo e prints
 - [ ] Roteiro do pitch e ensaio cronometrado da demonstração
-- [ ] Lista de melhorias futuras (ex.: deploy em nuvem, HTTPS no gateway; o *outbox* dos eventos já foi feito, D14)
+- [ ] Lista de melhorias futuras (ex.: deploy em nuvem, HTTPS no gateway, token de vida curta com renovação e revogação; o *outbox* dos eventos já foi feito, D14)
 
 **✔ Pronto quando:** todos os critérios de aceitação do SRS passam, o CI está verde, a matriz de rastreabilidade está completa e a demonstração roda do zero seguindo só o README.
+
+---
+
+## Qualidade e operação — entrega confiável, testes, monitoramento e backup
+
+Trabalho transversal às fases 2 e 3, feito a partir do plano de qualidade e operação. O registro completo, com resultados e números, está em [docs/evidencias-qualidade-operacao.md](docs/evidencias-qualidade-operacao.md); a operação das filas está em [docs/operacao-filas.md](docs/operacao-filas.md).
+
+### Q.1 Ambiente isolado e testes entre serviços — RNF07
+- [x] `compose.test.yml`: projeto `simpa-test` próprio, só o gateway publica porta (`127.0.0.1:18080`), credenciais sintéticas, nada compartilhado com o ambiente de desenvolvimento
+- [x] `tests/integration`: testes entre serviços com HTTP e RabbitMQ reais (fluxo principal, permissões, worker e broker interrompidos, despachantes concorrentes, monitoramento, cabeçalhos de segurança e listagem de usuários)
+- [x] Correção de segurança (D03): a consulta integrada do aluno devolvia notas e frequências de outro professor; agora filtra pelo escopo do usuário, com teste de regressão
+
+### Q.2 Entrega confiável dos eventos — D14
+- [x] **Outbox** no acadêmico: o evento é gravado na mesma transação da alteração (`evento_outbox`); o container `academico-despachante` publica com confirmação do broker. **Sem ele nenhum evento sai**
+- [x] Worker do analítico idempotente por `event_id` (`evento_processado`), com novas tentativas (5 s, 30 s, 2 min) e fila de falhas com o motivo; comando `python -m app.comandos.reprocessar_falhas`
+- [x] Workers e despachante reconectam quando o RabbitMQ cai (antes morriam com `socket.gaierror`)
+- [ ] Em ambiente com dados: a exchange legada `simpa.eventos.falhas` exige esvaziar e recriar a fila principal (passo documentado)
+
+### Q.3 Testes de navegador e contrato — RNF11, RNF12
+- [x] Playwright (versão fixa) contra o ambiente isolado: login, cadastros, lançamentos, escopo do professor, usabilidade e segurança (CSP)
+- [x] Contrato front × backend: os 17 valores enumerados do front são os do backend (`tests/contrato`, roda no CI)
+- [ ] Auditoria automatizada de contraste e conferência sistemática dos campos obrigatórios
+
+### Q.4 Telas de gestão — RF01, RF02, RF03
+- [x] **Cadastros** (admin e coordenação): turmas, disciplinas, alunos e inscrições, com busca, filtro, paginação, edição e inativação
+- [x] **Lançamentos** (admin e professor): planilha por disciplina com nota e faltas de N1 e N2; filtro `disciplina_id` nas listagens
+- [x] `GET /auth/usuarios` (admin e coordenador, sem e-mail): o professor responsável é escolhido por nome
+- [x] Filtro global de turmas busca todas as páginas e avisa se algo ficar de fora
+
+### Q.5 Monitoramento das filas
+- [x] Prometheus, Alertmanager e Grafana em camada separada (`compose.monitoramento.yml`), em versões fixas e só em `127.0.0.1`
+- [x] 12 regras de alerta com 15 casos de teste (`promtool`) e simulação real: worker parado, evento inválido e broker parado
+- [ ] Ajustar os limites dos alertas com carga real (os atuais são os iniciais do plano)
+- [ ] Definir o canal real dos alertas (e-mail ou chat): hoje vão só a um receptor local de teste
+
+### Q.6 Backup e restauração
+- [x] Decisão de RPO e RTO: backup diário, RPO de cerca de 24 h
+- [x] Backup cifrado (AES-256-GCM) dos três bancos e das chaves de assinatura, com janela controlada para consistência (`scripts/backup/`)
+- [x] Restauração só em ambiente descartável e vazio; recusa pacote adulterado, chave errada, banco não vazio e versão de migração diferente
+- [x] Prova ponta a ponta em `compose.restore-test.yml`: chaves, usuários, dados e histórico idênticos; o worker processa uma mudança nova; RTO medido em 30 s numa base pequena
+- [ ] **Agendamento** do backup (hoje só existe se alguém o rodar)
+- [ ] **Retenção** (7 cópias diárias e 4 semanais) e **cópia externa**, com decisão de onde guardar a chave
+- [ ] Simulação de falha do backup (disco cheio, container parado no meio)
+- [ ] Repetir a medição do RTO com volume real de dados
+
+### Q.7 CI de integração
+- [x] `ci.yml` rápido: lint, testes dos serviços, contrato, backup, monitoramento e build do front
+- [x] `integracao.yml`: ambiente completo, testes entre serviços, de navegador e prova de restauração, em pull request, na `main`, toda segunda-feira e sob demanda (cerca de 15 a 20 min)
+- [x] Instalação do navegador do Playwright resistente a falha de rede do runner (CDN do Playwright, com tentativas)
+
+### Q.8 Segurança de borda
+- [x] Cabeçalhos HTTP e CSP (ver 3.3)
+- [ ] HTTPS e HSTS: ficam no proxy TLS de produção, na frente do gateway
+- [ ] Token de vida curta com renovação (hoje 60 min) e revogação antes de expirar
+
+**✔ Pronto quando:** o backup roda sozinho com retenção e cópia externa, a restauração foi repetida com volume real, os alertas têm limites ajustados e um canal real, e o `integracao.yml` está como check obrigatório na `main`.
 
 ---
 
@@ -235,6 +297,9 @@ Tudo nesta fase fica em `services/analitico`. Os dados vêm do acadêmico, pelas
 | Trabalho concentrado em poucas pessoas | Atrasos e domínio desigual na arguição | Issues com responsável e revisão cruzada em PR |
 | Dados reais no ambiente de desenvolvimento | Violação da LGPD (RNF04) | Usar só o seed sintético |
 | Contratos entre serviços mudarem sem aviso | Um serviço quebra o outro | Documentar as rotas `/internal` e os eventos; testes de contrato; mudanças em PR revisado pelos dois lados |
+| Broker fora do ar perde eventos | Nota salva, mas o risco não é recalculado | Outbox + despachante + fila de falhas; alertas de monitoramento (Q.2, Q.5) |
+| Backup que só existe se alguém lembrar de rodar | RPO de 24 h só no papel | Agendar o backup e testar a restauração toda semana (Q.6, Q.7) |
+| Rede do runner do CI instável (DNS dos mirrors do Ubuntu) | Falha do job sem falha de código | Navegador do Playwright pelo CDN, com tentativas; `ci.yml` rápido separado do `integracao.yml` |
 | Docker pesado em máquinas mais fracas | Integrante sem conseguir rodar o projeto | Testar cedo em todas as máquinas; `docker compose up <serviço>` sobe só o necessário |
 
 ---
